@@ -9,13 +9,16 @@ PYTEST_ARGS ?=
 MYPY_ARGS ?=
 RUN_DEV = $(UV) run --locked --group dev
 
-.PHONY: help sync lock lock-check lint format format-check typecheck test check build clean clean-venv distclean
+.PHONY: help sync run lock lock-check lint format format-check typecheck test check build clean clean-venv distclean
 
 help: ## Show available commands (the default).
 	@awk 'BEGIN { printf "Usage: make <target>\n\n" } /^[a-zA-Z_-]+:.*## / { split($$0, parts, "## "); sub(/:.*/, "", parts[1]); printf "  %-16s %s\n", parts[1], parts[2] }' $(MAKEFILE_LIST)
 
 sync: ## Install the project and development tools from uv.lock.
 	$(UV) sync --locked --group dev
+
+run: ## Start the API at http://127.0.0.1:8000 (docs at /docs).
+	$(UV) run --locked uvicorn talnaspor.app:app --reload
 
 lock: ## Update uv.lock after changing dependencies.
 	$(UV) lock

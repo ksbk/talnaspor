@@ -17,6 +17,7 @@ Install [uv](https://docs.astral.sh/uv/) and use the Makefile for common tasks:
 
 ```sh
 make sync          # Install the project and development tools from uv.lock
+make run           # Start the API at http://127.0.0.1:8000 (docs at /docs)
 make check         # Check the lockfile, lint, formatting, types, and tests
 make format        # Format Python code
 make typecheck     # Type-check source and tests with mypy
@@ -24,6 +25,13 @@ make test          # Run tests
 make build         # Create source and wheel distributions in dist/
 make clean         # Remove generated artifacts and caches; preserve .venv
 make distclean     # Also remove .venv; run make sync to start again
+```
+
+Ask a question once the API is running:
+
+```sh
+curl -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
+     -d '{"question": "Hver er verðbólgan núna?"}'
 ```
 
 Run `make` or `make help` for every target. For example, use
