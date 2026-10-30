@@ -57,7 +57,15 @@ MONTHS = {
     "december": 12,
 }
 
-CPI_WORDS = ("verdbolg", "inflation", "neysluverd", "consumer price", "cpi")
+CPI_WORDS = (
+    "verdbolg",
+    "inflation",
+    "neysluverd",
+    "consumer price",
+    "cpi",
+    "verdlag",
+    "price level",
+)
 POPULATION_WORDS = (
     "mannfjold",
     "ibua",
@@ -67,6 +75,8 @@ POPULATION_WORDS = (
     "bua a islandi",
     "bua margir",
     "margir bua",
+    "bjuggu",
+    "bjo a islandi",
     "ibuum",
     "ibui",
     "adfluttir umfram",
@@ -85,6 +95,13 @@ CHANGE = re.compile(
 # The start of a span, as in "frá 2015" or "since 2000", which runs to the latest period.
 SINCE = re.compile(r"\b(since|(fra|sidan)\s+(\w+\s+)?(1[7-9]|20)\d{2})")
 
+# "The last 12 months" describes annual change, not a relative period.
+TWELVE_MONTHS = re.compile(r"\b(sidustu|last|past) 12 (manada|manudi|months)\b")
+LAST_YEAR = re.compile(r"\b(last year|previous year|i fyrra|sidasta ar|sidastlidid ar)")
+
+# Other relative periods are not supported, and must never be silently ignored.
+RELATIVE = re.compile(r"\b(last|past|previous|sidustu|sidasta|sidastlid|ago|fyrir \w+ arum)\b")
+
 
 def normalize(text: str) -> str:
     """Lowercase and strip diacritics, mapping þ, æ and ð explicitly."""
@@ -101,11 +118,25 @@ def interpret(question: str) -> Interpretation | Clarification:
 
     if is_cpi and is_population:
         return Clarification(f"Spyrðu um eitt efni í einu. {SUPPORTED}")
+    if not is_cpi and not is_population:
+        return Clarification(f"Ég skildi ekki spurninguna. {SUPPORTED}")
+
+    text = TWELVE_MONTHS.sub("12 manada", text)
+    last_year = bool(LAST_YEAR.search(text))
+    if RELATIVE.search(LAST_YEAR.sub("", text)):
+        return Clarification(
+            "Ég get ekki enn svarað um afstæð tímabil eins og „síðustu fimm ár“. "
+            "Tilgreindu tímabil, til dæmis „september 2026“ eða „2020 og 2025“."
+        )
+
     if is_cpi:
+        if last_year:
+            return Clarification(
+                "Verðbólga er birt eftir mánuðum. Tilgreindu mánuð, "
+                "til dæmis „verðbólga í desember 2025“."
+            )
         return _interpret_cpi(text)
-    if is_population:
-        return _interpret_population(text)
-    return Clarification(f"Ég skildi ekki spurninguna. {SUPPORTED}")
+    return _interpret_population(text, last_year)
 
 
 def _interpret_cpi(text: str) -> Interpretation | Clarification:
@@ -115,7 +146,9 @@ def _interpret_cpi(text: str) -> Interpretation | Clarification:
 
     if _has_any(text, ("manadarbreyting", "milli manada", "monthly", "month on month")):
         measure = "change_M"
-    elif _has_any(text, ("verdbolg", "inflation", "arsbreyting", "annual", "12 manada")):
+    elif _has_any(
+        text, ("verdbolg", "inflation", "arsbreyting", "annual", "12 manada", "verdlag", "haekk")
+    ):
         measure = "change_A"
     else:
         measure = "index"
@@ -132,8 +165,11 @@ def _interpret_cpi(text: str) -> Interpretation | Clarification:
     return _with_periods("cpi", "Mánuður", selections, periods, spans, 12)
 
 
-def _interpret_population(text: str) -> Interpretation | Clarification:
+def _interpret_population(text: str, last_year: bool) -> Interpretation | Clarification:
     years = _years(text)
+    if last_year and not years:
+        # The latest population figure is for 1 January of the current year.
+        years = [before_latest(1)]
     if len(years) > 2:
         return Clarification("Ég get borið saman tvö ár í einu.")
 

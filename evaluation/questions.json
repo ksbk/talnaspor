@@ -259,6 +259,25 @@
       ]
     },
     {
+      "id": "cpi-14",
+      "question": "Hvað er verðlag að hækka mikið?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "latest",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M10"
+      ],
+      "values": [
+        5.9
+      ]
+    },
+    {
       "id": "pop-01",
       "question": "Hvað búa margir á Íslandi?",
       "expect": "answer",
@@ -466,6 +485,42 @@
       ]
     },
     {
+      "id": "pop-12",
+      "question": "Hve margir bjuggu á Íslandi árið 1990?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "1990",
+          "Eining": "0"
+        }
+      },
+      "periods": [
+        "1990"
+      ],
+      "values": [
+        253785
+      ]
+    },
+    {
+      "id": "pop-13",
+      "question": "Hver var mannfjöldinn í fyrra?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "latest-1",
+          "Eining": "0"
+        }
+      },
+      "periods": [
+        "2025"
+      ],
+      "values": [
+        389444
+      ]
+    },
+    {
       "id": "clar-01",
       "question": "Verðbólga árið 2024",
       "expect": "clarification",
@@ -488,6 +543,12 @@
       "question": "Hvernig er veðrið?",
       "expect": "clarification",
       "message": "skildi ekki"
+    },
+    {
+      "id": "clar-05",
+      "question": "What was inflation last year?",
+      "expect": "clarification",
+      "message": "Tilgreindu mánuð"
     },
     {
       "id": "ref-01",
@@ -518,37 +579,17 @@
     },
     {
       "id": "lim-01",
-      "question": "Hvað er verðlag að hækka mikið?",
+      "question": "Hvernig hefur mannfjöldinn breyst síðustu fimm ár?",
       "expect": "clarification",
-      "message": "skildi ekki",
-      "limitation": "\"Verðlag\" (price level) is not recognized as a CPI term."
+      "message": "afstæð tímabil",
+      "limitation": "Relative periods other than \"last year\", such as \"síðustu fimm ár\", get a clarification instead of an answer."
     },
     {
       "id": "lim-02",
-      "question": "Hve margir bjuggu á Íslandi árið 1990?",
+      "question": "Hver var verðbólgan í síðasta mánuði?",
       "expect": "clarification",
-      "message": "skildi ekki",
-      "limitation": "The past tense \"bjuggu\" is not recognized as a population question."
-    },
-    {
-      "id": "lim-03",
-      "question": "What was inflation last year?",
-      "expect": "answer",
-      "interpretation": {
-        "table": "cpi",
-        "selections": {
-          "Mánuður": "latest",
-          "Vísitala": "CPI",
-          "Liður": "change_A"
-        }
-      },
-      "periods": [
-        "2026M10"
-      ],
-      "values": [
-        5.9
-      ],
-      "limitation": "Relative periods such as \"last year\" are ignored, so the latest month is answered instead (the period is shown)."
+      "message": "afstæð tímabil",
+      "limitation": "\"Last month\" is ambiguous between the calendar month and the latest published month, so it gets a clarification."
     }
   ]
 }

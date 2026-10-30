@@ -180,3 +180,48 @@ def test_asks_which_change_for_cpi_in_one_month() -> None:
 )
 def test_recognizes_inflected_population_words(question: str, selections: dict[str, str]) -> None:
     assert interpret(question) == Interpretation("population", selections)
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        (
+            "Hver var mannfjöldinn í fyrra?",
+            Interpretation("population", {"Ár": before_latest(1), "Eining": "0"}),
+        ),
+        (
+            "Hvernig breyttist mannfjöldinn í fyrra?",
+            Interpretation("population", {"Ár": before_latest(1), "Eining": "2"}),
+        ),
+        (
+            "Inflation over the last 12 months",
+            Interpretation("cpi", {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"}),
+        ),
+        (
+            "Hvað er verðlag að hækka mikið?",
+            Interpretation("cpi", {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"}),
+        ),
+        (
+            "Hve margir bjuggu á Íslandi árið 1990?",
+            Interpretation("population", {"Ár": "1990", "Eining": "0"}),
+        ),
+    ],
+)
+def test_interprets_last_year_and_wording(question: str, expected: Interpretation) -> None:
+    assert interpret(question) == expected
+
+
+@pytest.mark.parametrize(
+    ("question", "message"),
+    [
+        ("What was inflation last year?", "Tilgreindu mánuð"),
+        ("Hvernig hefur mannfjöldinn breyst síðustu fimm ár?", "afstæð tímabil"),
+        ("What was the population 10 years ago?", "afstæð tímabil"),
+        ("Hver var verðbólgan í síðasta mánuði?", "afstæð tímabil"),
+    ],
+)
+def test_never_ignores_relative_periods(question: str, message: str) -> None:
+    result = interpret(question)
+
+    assert isinstance(result, Clarification)
+    assert message in result.message
