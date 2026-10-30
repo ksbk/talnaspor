@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import patch
 
 import requests
@@ -5,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from talnaspor.answer import LATEST, Answer
 from talnaspor.app import app
+from talnaspor.pxweb import PXMetadata
 
 client = TestClient(app)
 
@@ -83,3 +85,25 @@ def test_serves_chat_page() -> None:
     assert response.headers["content-type"].startswith("text/html")
     assert "<title>Talnaspor</title>" in response.text
     assert 'fetch("/ask"' in response.text
+
+
+def test_answers_change_over_time_end_to_end() -> None:
+    fixtures = Path(__file__).parent / "fixtures" / "is"
+    metadata = PXMetadata.model_validate_json(
+        (fixtures / "population_metadata.json").read_text(encoding="utf-8")
+    )
+    data = (fixtures / "population_2016_2026.json").read_text(encoding="utf-8")
+
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata),
+        patch("talnaspor.answer.get_data", return_value=data),
+    ):
+        response = client.post("/ask", json={"question": "How has Iceland's population changed?"})
+
+    body = response.json()
+    assert body["status"] == "answer"
+    assert body["answer"] is None
+    assert body["compare_from"] == "latest-10"
+    assert body["comparison"]["difference_text"] == "+68.288 íbúar"
+    assert body["comparison"]["relative_change_text"] == "+20,9%"
+    assert body["message"].startswith("Mannfjöldi 1. janúar 2016: 326.036 íbúar.")

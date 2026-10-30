@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from talnaspor.answer import Answer, answer
+from talnaspor.answer import Answer, Comparison, answer, compare
 from talnaspor.interpret import Clarification, interpret
 
 app = FastAPI(title="Talnaspor")
@@ -27,7 +27,9 @@ class AskResponse(BaseModel):
     message: str
     table: str | None = None
     selections: dict[str, str] | None = None
+    compare_from: str | None = None
     answer: Answer | None = None
+    comparison: Comparison | None = None
     detail: str | None = None
     elapsed_ms: int
 
@@ -53,8 +55,19 @@ def ask(request: AskRequest) -> AskResponse | JSONResponse:
     if isinstance(interpretation, Clarification):
         return respond(status="clarification", message=interpretation.message)
 
-    context = {"table": interpretation.table, "selections": interpretation.selections}
+    context = {
+        "table": interpretation.table,
+        "selections": interpretation.selections,
+        "compare_from": interpretation.compare_from,
+    }
     try:
+        if interpretation.compare_from is not None:
+            comparison = compare(
+                interpretation.table, interpretation.selections, interpretation.compare_from
+            )
+            return respond(
+                status="answer", message=comparison.text, comparison=comparison, **context
+            )
         result = answer(interpretation.table, interpretation.selections)
     except requests.RequestException as error:
         body = respond(

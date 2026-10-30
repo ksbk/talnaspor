@@ -4,7 +4,15 @@ from unittest.mock import patch
 
 import pytest
 
-from talnaspor.answer import LATEST, answer, format_period, format_value
+from talnaspor.answer import (
+    LATEST,
+    answer,
+    before_latest,
+    compare,
+    format_period,
+    format_value,
+    shift_period,
+)
 from talnaspor.pxweb import PXMetadata
 from talnaspor.tables import TABLES
 
@@ -128,3 +136,87 @@ def test_formats_values_in_icelandic(
 )
 def test_formats_periods_in_icelandic(code: str, expected: str) -> None:
     assert format_period(code) == expected
+
+
+def test_compares_population_over_default_span() -> None:
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata("population")),
+        patch(
+            "talnaspor.answer.get_data", return_value=read("population_2016_2026.json")
+        ) as get_data,
+    ):
+        result = compare("population", {"Ár": LATEST, "Eining": "0"}, before_latest(10))
+
+    assert submitted_values(get_data.call_args.args[1])["Ár"] == ["2016", "2026"]
+    assert result.text == (
+        "Mannfjöldi 1. janúar 2016: 326.036 íbúar. "
+        "Mannfjöldi 1. janúar 2026: 394.324 íbúar. "
+        "Breyting: +68.288 íbúar (+20,9%). "
+        "Heimild: Hagstofa Íslands, Hagskinna, Lykiltölur mannfjöldans 1703-2026."
+    )
+    assert (result.start.value, result.end.value, result.difference) == (326036, 394324, 68288)
+    assert isinstance(result.difference, int)
+    assert result.selections == {"Ár": ["2016", "2026"], "Eining": ["0"]}
+    assert result.labels == {"Eining": "Mannfjöldi 1. janúar"}
+
+
+def test_compares_percentages_in_percentage_points() -> None:
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata("cpi")),
+        patch("talnaspor.answer.get_data", return_value=read("cpi_2025m09_2026m09.json")),
+    ):
+        result = compare(
+            "cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_A"}, "2025M09"
+        )
+
+    assert result.text == (
+        "Vísitala neysluverðs, ársbreyting í september 2025: 4,1%. "
+        "Vísitala neysluverðs, ársbreyting í september 2026: 5,9%. "
+        "Breyting: +1,8 prósentustig. "
+        "Heimild: Hagstofa Íslands, Vísitala neysluverðs og breytingar, grunnur 1988=100."
+    )
+    assert result.difference == 1.8
+    assert result.relative_change_text is None
+
+
+def test_reports_a_decrease_with_a_minus_sign() -> None:
+    data = json.loads(read("population_2016_2026.json"))
+    data["value"] = [394324, 326036]
+
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata("population")),
+        patch("talnaspor.answer.get_data", return_value=json.dumps(data)),
+    ):
+        result = compare("population", {"Ár": "2026", "Eining": "0"}, "2016")
+
+    assert result.difference_text == "-68.288 íbúar"
+    assert result.relative_change_text == "-17,3%"
+
+
+def test_rejects_comparing_a_period_with_itself() -> None:
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata("population")),
+        patch("talnaspor.answer.get_data") as get_data,
+        pytest.raises(ValueError, match="distinct values"),
+    ):
+        compare("population", {"Ár": LATEST, "Eining": "0"}, "2026")
+
+    get_data.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("code", "steps", "expected"),
+    [
+        ("2026", -10, "2016"),
+        ("2026M10", -12, "2025M10"),
+        ("2026M01", -1, "2025M12"),
+        ("2026M12", 1, "2027M01"),
+    ],
+)
+def test_shifts_periods(code: str, steps: int, expected: str) -> None:
+    assert shift_period(code, steps) == expected
+
+
+def test_rejects_shifting_unknown_period_format() -> None:
+    with pytest.raises(ValueError, match="Cannot shift"):
+        shift_period("2026Q3", -1)

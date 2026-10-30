@@ -1,6 +1,6 @@
 import pytest
 
-from talnaspor.answer import LATEST
+from talnaspor.answer import LATEST, before_latest
 from talnaspor.interpret import Clarification, Interpretation, interpret, normalize
 
 
@@ -65,8 +65,9 @@ def test_interprets_population_questions(question: str, selections: dict[str, st
         ("Verðbólga og mannfjöldi árið 2024", "eitt efni"),
         ("Verðbólga árið 2024", "Tilgreindu mánuð"),
         ("Verðbólga í september", "Tilgreindu ár"),
-        ("Verðbólga í janúar og febrúar 2026", "einn mánuð"),
-        ("Mannfjöldi 2015 og 2025", "eitt ár"),
+        ("Verðbólga í janúar, febrúar og mars 2026", "tvo mánuði"),
+        ("Mannfjöldi 2005, 2015 og 2025", "tvö ár"),
+        ("Verðbólga í janúar 2024, 2025 og 2026", "hvert ár"),
     ],
 )
 def test_asks_for_clarification(question: str, message: str) -> None:
@@ -74,3 +75,61 @@ def test_asks_for_clarification(question: str, message: str) -> None:
 
     assert isinstance(result, Clarification)
     assert message in result.message
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        (
+            "How has Iceland's population changed?",
+            Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(10)),
+        ),
+        (
+            "Hvernig hefur mannfjöldinn breyst frá 2015 til 2025?",
+            Interpretation("population", {"Ár": "2025", "Eining": "0"}, "2015"),
+        ),
+        (
+            "Mannfjöldi 2015 og 2025",
+            Interpretation("population", {"Ár": "2025", "Eining": "0"}, "2015"),
+        ),
+        (
+            "Population growth since 2000",
+            Interpretation("population", {"Ár": LATEST, "Eining": "0"}, "2000"),
+        ),
+        (
+            "Hvernig hefur verðbólgan þróast?",
+            Interpretation(
+                "cpi",
+                {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"},
+                before_latest(12),
+            ),
+        ),
+        (
+            "Breyting vísitölu neysluverðs frá janúar 2025 til september 2026",
+            Interpretation(
+                "cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "index"}, "2025M01"
+            ),
+        ),
+        (
+            "Verðbólga í janúar og febrúar 2026",
+            Interpretation(
+                "cpi", {"Mánuður": "2026M02", "Vísitala": "CPI", "Liður": "change_A"}, "2026M01"
+            ),
+        ),
+        (
+            "Verðbólga í september 2025 og 2026",
+            Interpretation(
+                "cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_A"}, "2025M09"
+            ),
+        ),
+    ],
+)
+def test_interprets_change_over_time(question: str, expected: Interpretation) -> None:
+    assert interpret(question) == expected
+
+
+def test_annual_change_is_not_a_comparison() -> None:
+    result = interpret("Ársbreyting vísitölu neysluverðs í september 2026")
+
+    assert isinstance(result, Interpretation)
+    assert result.compare_from is None

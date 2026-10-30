@@ -110,6 +110,9 @@
   .reply.loading { color: var(--muted); }
   .figure { font-size: 2rem; font-weight: 700; line-height: 1.2; }
   .labels { color: var(--muted); margin: 2px 0 10px; }
+  .points { border-collapse: collapse; margin: 0 0 10px; }
+  .points td { padding: 2px 16px 2px 0; }
+  .points td:last-child { font-weight: 600; text-align: right; }
   .sentence { margin: 0 0 10px; }
   .meta { font-size: 0.875rem; color: var(--muted); }
   .meta a { color: var(--accent); }
@@ -143,7 +146,8 @@
   <div class="examples" aria-label="Dæmi um spurningar">
     <button type="button">Hver er verðbólgan núna?</button>
     <button type="button">Hvað búa margir á Íslandi?</button>
-    <button type="button">Verðbólga í september 2025</button>
+    <button type="button">Hvernig hefur mannfjöldinn breyst?</button>
+    <button type="button">Verðbólga í september 2025 og 2026</button>
     <button type="button">Verðbólga án húsnæðis í mars 2026</button>
     <button type="button">Hver var fjölgun íbúa árið 2024?</button>
     <button type="button">Verðbólga árið 2024</button>
@@ -170,23 +174,52 @@
     return box;
   }
 
+  function sourceLink(result) {
+    const source = element("p", "meta");
+    const link = element("a", "", result.table_title);
+    link.href = result.page_url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    source.append("Opna töflu hjá Hagstofu: ", link);
+    return source;
+  }
+
+  function renderComparison(reply, body) {
+    const comparison = body.comparison;
+    const change = comparison.difference_text +
+      (comparison.relative_change_text ? " (" + comparison.relative_change_text + ")" : "");
+    const labels = Object.values(comparison.labels);
+    labels.push(comparison.start.period_label + " → " + comparison.end.period_label);
+
+    const points = element("table", "points");
+    for (const point of [comparison.start, comparison.end]) {
+      const row = element("tr");
+      row.append(element("td", "", point.period_label), element("td", "", point.value_text));
+      points.append(row);
+    }
+
+    reply.append(
+      element("div", "figure", change),
+      element("div", "labels", labels.join(" · ")),
+      points,
+      element("p", "sentence", body.message),
+      sourceLink(comparison),
+      element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"),
+      details("Sýna fyrirspurn til Hagstofu", JSON.stringify(
+        { tafla: comparison.api_url, val: comparison.selections }, null, 2)),
+    );
+  }
+
   function renderAnswer(reply, body) {
     const answer = body.answer;
     const labels = Object.values(answer.labels).filter((label) => label !== answer.period);
     labels.push(answer.period_label);
 
-    const source = element("p", "meta");
-    const link = element("a", "", answer.table_title);
-    link.href = answer.page_url;
-    link.target = "_blank";
-    link.rel = "noopener";
-    source.append("Opna töflu hjá Hagstofu: ", link);
-
     reply.append(
       element("div", "figure", answer.value_text),
       element("div", "labels", labels.join(" · ")),
       element("p", "sentence", body.message),
-      source,
+      sourceLink(answer),
       element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"),
     );
     if (answer.status) {
@@ -200,7 +233,8 @@
     reply.className = "reply " + body.status;
     reply.textContent = "";
     if (body.status === "answer") {
-      renderAnswer(reply, body);
+      if (body.comparison) renderComparison(reply, body);
+      else renderAnswer(reply, body);
       return;
     }
     reply.append(element("p", "sentence", body.message));

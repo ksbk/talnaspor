@@ -10,14 +10,16 @@ from talnaspor.tables import TABLES
 
 FIXTURES = Path("tests/fixtures/is")
 
-CAPTURES = {
-    "cpi": {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_A"},
-    "population": {"Ár": "2026", "Eining": "0"},
-}
+CAPTURES: list[tuple[str, dict[str, str | list[str]]]] = [
+    ("cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_A"}),
+    ("cpi", {"Mánuður": ["2025M09", "2026M09"], "Vísitala": "CPI", "Liður": "change_A"}),
+    ("population", {"Ár": "2026", "Eining": "0"}),
+    ("population", {"Ár": ["2016", "2026"], "Eining": "0"}),
+]
 
 FIXTURES.mkdir(parents=True, exist_ok=True)
 
-for key, selections in CAPTURES.items():
+for key, selections in CAPTURES:
     table = TABLES[key]
 
     metadata_response = requests.get(table.api_url, timeout=15)
@@ -25,7 +27,8 @@ for key, selections in CAPTURES.items():
     (FIXTURES / f"{key}_metadata.json").write_text(metadata_response.text, encoding="utf-8")
 
     query = build_query(get_metadata(table.api_url), selections)
-    period = selections[table.time_code].lower()
+    periods = selections[table.time_code]
+    period = "_".join([periods] if isinstance(periods, str) else periods).lower()
     data_path = FIXTURES / f"{key}_{period}.json"
     data_path.write_text(get_data(table.api_url, query), encoding="utf-8")
 

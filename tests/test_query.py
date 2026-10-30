@@ -105,3 +105,27 @@ def test_rejects_invalid_month(metadata: PXMetadata) -> None:
                 "Item": "change_A",
             },
         )
+
+
+def test_builds_query_with_several_periods(metadata: PXMetadata) -> None:
+    result = build_query(
+        metadata,
+        {"Month": ["2026M08", "2026M09"], "Index": "CPI", "Item": "index"},
+    )
+
+    assert isinstance(result["query"], list)
+    assert result["query"][0] == {
+        "code": "Month",
+        "selection": {"filter": "item", "values": ["2026M08", "2026M09"]},
+    }
+
+
+@pytest.mark.parametrize("months", [[], ["2026M09", "2026M09"]])
+def test_rejects_empty_or_repeated_values(metadata: PXMetadata, months: list[str]) -> None:
+    with pytest.raises(ValueError, match="distinct values"):
+        build_query(metadata, {"Month": months, "Index": "CPI", "Item": "index"})
+
+
+def test_rejects_any_invalid_value_in_a_list(metadata: PXMetadata) -> None:
+    with pytest.raises(ValueError, match="Unsupported value"):
+        build_query(metadata, {"Month": ["2026M09", "2027M01"], "Index": "CPI", "Item": "index"})
