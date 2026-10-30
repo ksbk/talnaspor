@@ -264,3 +264,16 @@ def test_explains_an_unpublished_figure() -> None:
     assert body["status"] == "refusal"
     assert body["reason"] == "unpublished"
     assert body["message"].startswith("Hagstofa Íslands hefur ekki birt þessa tölu")
+
+
+@pytest.mark.parametrize(
+    ("question", "lang"),
+    [("What is the capital of Iceland?", "en"), ("Hver er höfuðborg Íslands?", "is")],
+)
+def test_answers_general_knowledge_questions_with_not_found(question: str, lang: str) -> None:
+    with patch("talnaspor.app.search") as search:
+        body = client.post("/ask", json={"question": question, "lang": lang}).json()
+
+    assert body["status"] == "clarification"
+    assert body["tables"] is None
+    search.assert_not_called()

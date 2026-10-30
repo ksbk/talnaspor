@@ -11,9 +11,9 @@ from pydantic import BaseModel, Field
 
 from talnaspor.answer import Answer, Comparison, Lang, answer, compare, format_period
 from talnaspor.catalog import TableHit, search, topic_word
-from talnaspor.interpret import Clarification, interpret
+from talnaspor.interpret import Clarification, interpret, normalize
 from talnaspor.jsonstat import MissingValue
-from talnaspor.planner import Choice, plan_answer
+from talnaspor.planner import GENERAL_KNOWLEDGE, Choice, plan_answer
 from talnaspor.validation import UnavailableValue
 
 app = FastAPI(title="Talnaspor")
@@ -152,7 +152,12 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
     messages = MESSAGES[lang]
     interpretation = interpret(question)
     if isinstance(interpretation, Clarification):
-        tables = [] if interpretation.recognized else search(question, limit=10)
+        # General-knowledge questions ("capital of Iceland") are not statistical, so they
+        # get the plain "not found" reply rather than loosely related tables.
+        searchable = not interpretation.recognized and not GENERAL_KNOWLEDGE.search(
+            normalize(question)
+        )
+        tables = search(question, limit=10) if searchable else []
         if not tables:
             return respond(status="clarification", message=interpretation.text(lang))
         planned = plan_answer(question, candidates(question, tables), attempts=12, lang=lang)
