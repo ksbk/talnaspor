@@ -18,6 +18,7 @@ Install [uv](https://docs.astral.sh/uv/) and use the Makefile for common tasks:
 ```sh
 make sync          # Install the project and development tools from uv.lock
 make run           # Start the API at http://127.0.0.1:8000 (docs at /docs)
+make evaluate      # Ask the evaluation questions live; write evaluation/results.md
 make check         # Check the lockfile, lint, formatting, types, and tests
 make format        # Format Python code
 make typecheck     # Type-check source and tests with mypy

@@ -1,0 +1,554 @@
+{
+  "as_of": "2026-10-30",
+  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate.",
+  "questions": [
+    {
+      "id": "cpi-01",
+      "question": "Hver var verðbólgan í september 2026?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2026M09",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M09"
+      ],
+      "values": [
+        5.9
+      ]
+    },
+    {
+      "id": "cpi-02",
+      "question": "Hver var verðbólgan í janúar 2025?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2025M01",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2025M01"
+      ],
+      "values": [
+        4.6
+      ]
+    },
+    {
+      "id": "cpi-03",
+      "question": "What was inflation in May 2025?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2025M05",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2025M05"
+      ],
+      "values": [
+        3.8
+      ]
+    },
+    {
+      "id": "cpi-04",
+      "question": "Verðbólga án húsnæðis í mars 2026",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2026M03",
+          "Vísitala": "CPILH",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M03"
+      ],
+      "values": [
+        4.9
+      ]
+    },
+    {
+      "id": "cpi-05",
+      "question": "Hver var mánaðarbreyting vísitölu neysluverðs í ágúst 2026?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2026M08",
+          "Vísitala": "CPI",
+          "Liður": "change_M"
+        }
+      },
+      "periods": [
+        "2026M08"
+      ],
+      "values": [
+        0.2
+      ]
+    },
+    {
+      "id": "cpi-06",
+      "question": "Hver var vísitala neysluverðs í desember 2024?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2024M12",
+          "Vísitala": "CPI",
+          "Liður": "index"
+        }
+      },
+      "periods": [
+        "2024M12"
+      ],
+      "values": [
+        637.2
+      ]
+    },
+    {
+      "id": "cpi-07",
+      "question": "What was the consumer price index in June 2025?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2025M06",
+          "Vísitala": "CPI",
+          "Liður": "index"
+        }
+      },
+      "periods": [
+        "2025M06"
+      ],
+      "values": [
+        656.5
+      ]
+    },
+    {
+      "id": "cpi-08",
+      "question": "What was the monthly change in the CPI in September 2026?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2026M09",
+          "Vísitala": "CPI",
+          "Liður": "change_M"
+        }
+      },
+      "periods": [
+        "2026M09"
+      ],
+      "values": [
+        0.39
+      ]
+    },
+    {
+      "id": "cpi-09",
+      "question": "Hver er verðbólgan núna?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "latest",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M10"
+      ],
+      "values": [
+        5.9
+      ]
+    },
+    {
+      "id": "cpi-10",
+      "question": "Hver er verðbólgan án húsnæðis?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "latest",
+          "Vísitala": "CPILH",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M10"
+      ],
+      "values": [
+        5.9
+      ]
+    },
+    {
+      "id": "cpi-11",
+      "question": "Verðbólga í september 2025 og 2026",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2026M09",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        },
+        "compare_from": "2025M09"
+      },
+      "periods": [
+        "2025M09",
+        "2026M09"
+      ],
+      "values": [
+        4.1,
+        5.9
+      ]
+    },
+    {
+      "id": "cpi-12",
+      "question": "Breyting vísitölu neysluverðs frá janúar 2025 til september 2026",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2026M09",
+          "Vísitala": "CPI",
+          "Liður": "index"
+        },
+        "compare_from": "2025M01"
+      },
+      "periods": [
+        "2025M01",
+        "2026M09"
+      ],
+      "values": [
+        635.5,
+        697.3
+      ]
+    },
+    {
+      "id": "cpi-13",
+      "question": "Hvernig hefur verðbólgan þróast?",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "latest",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        },
+        "compare_from": "latest-12"
+      },
+      "periods": [
+        "2025M10",
+        "2026M10"
+      ],
+      "values": [
+        4.3,
+        5.9
+      ]
+    },
+    {
+      "id": "pop-01",
+      "question": "Hvað búa margir á Íslandi?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "latest",
+          "Eining": "0"
+        }
+      },
+      "periods": [
+        "2026"
+      ],
+      "values": [
+        394324
+      ]
+    },
+    {
+      "id": "pop-02",
+      "question": "Hver var mannfjöldinn árið 2020?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2020",
+          "Eining": "0"
+        }
+      },
+      "periods": [
+        "2020"
+      ],
+      "values": [
+        354042
+      ]
+    },
+    {
+      "id": "pop-03",
+      "question": "What was the population of Iceland in 2000?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2000",
+          "Eining": "0"
+        }
+      },
+      "periods": [
+        "2000"
+      ],
+      "values": [
+        279049
+      ]
+    },
+    {
+      "id": "pop-04",
+      "question": "Hver var fjölgun íbúa árið 2024?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2024",
+          "Eining": "2"
+        }
+      },
+      "periods": [
+        "2024"
+      ],
+      "values": [
+        5718
+      ]
+    },
+    {
+      "id": "pop-05",
+      "question": "Population growth rate in 2024",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2024",
+          "Eining": "1"
+        }
+      },
+      "periods": [
+        "2024"
+      ],
+      "values": [
+        1.49
+      ]
+    },
+    {
+      "id": "pop-06",
+      "question": "Hve margir aðfluttir umfram brottflutta 2023?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2023",
+          "Eining": "3"
+        }
+      },
+      "periods": [
+        "2023"
+      ],
+      "values": [
+        6790
+      ]
+    },
+    {
+      "id": "pop-07",
+      "question": "Fæddir umfram dána á Íslandi 2023",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2023",
+          "Eining": "4"
+        }
+      },
+      "periods": [
+        "2023"
+      ],
+      "values": [
+        1744
+      ]
+    },
+    {
+      "id": "pop-08",
+      "question": "Hvað fjölgaði íbúum mikið árið 2024?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2024",
+          "Eining": "2"
+        }
+      },
+      "periods": [
+        "2024"
+      ],
+      "values": [
+        5718
+      ]
+    },
+    {
+      "id": "pop-09",
+      "question": "How has Iceland's population changed?",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "latest",
+          "Eining": "0"
+        },
+        "compare_from": "latest-10"
+      },
+      "periods": [
+        "2016",
+        "2026"
+      ],
+      "values": [
+        326036,
+        394324
+      ]
+    },
+    {
+      "id": "pop-10",
+      "question": "Hvernig hefur mannfjöldinn breyst frá 2015 til 2025?",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2025",
+          "Eining": "0"
+        },
+        "compare_from": "2015"
+      },
+      "periods": [
+        "2015",
+        "2025"
+      ],
+      "values": [
+        323024,
+        389444
+      ]
+    },
+    {
+      "id": "pop-11",
+      "question": "Hvernig hefur mannfjöldinn breyst frá 2000?",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "latest",
+          "Eining": "0"
+        },
+        "compare_from": "2000"
+      },
+      "periods": [
+        "2000",
+        "2026"
+      ],
+      "values": [
+        279049,
+        394324
+      ]
+    },
+    {
+      "id": "clar-01",
+      "question": "Verðbólga árið 2024",
+      "expect": "clarification",
+      "message": "Tilgreindu mánuð"
+    },
+    {
+      "id": "clar-02",
+      "question": "Hver var breytingin á vísitölu neysluverðs í september 2026?",
+      "expect": "clarification",
+      "message": "mánaðarbreytingu eða ársbreytingu"
+    },
+    {
+      "id": "clar-03",
+      "question": "Verðbólga og mannfjöldi árið 2024",
+      "expect": "clarification",
+      "message": "eitt efni"
+    },
+    {
+      "id": "clar-04",
+      "question": "Hvernig er veðrið?",
+      "expect": "clarification",
+      "message": "skildi ekki"
+    },
+    {
+      "id": "ref-01",
+      "question": "Hver var fjölgun íbúa árið 2026?",
+      "expect": "refusal",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2026",
+          "Eining": "2"
+        }
+      },
+      "detail": "status '..'"
+    },
+    {
+      "id": "ref-02",
+      "question": "Hver var verðbólgan í janúar 2030?",
+      "expect": "refusal",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2030M01",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "detail": "Unsupported value"
+    },
+    {
+      "id": "lim-01",
+      "question": "Hvað er verðlag að hækka mikið?",
+      "expect": "clarification",
+      "message": "skildi ekki",
+      "limitation": "\"Verðlag\" (price level) is not recognized as a CPI term."
+    },
+    {
+      "id": "lim-02",
+      "question": "Hve margir bjuggu á Íslandi árið 1990?",
+      "expect": "clarification",
+      "message": "skildi ekki",
+      "limitation": "The past tense \"bjuggu\" is not recognized as a population question."
+    },
+    {
+      "id": "lim-03",
+      "question": "What was inflation last year?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "latest",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M10"
+      ],
+      "values": [
+        5.9
+      ],
+      "limitation": "Relative periods such as \"last year\" are ignored, so the latest month is answered instead (the period is shown)."
+    }
+  ]
+}
