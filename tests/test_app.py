@@ -11,6 +11,7 @@ client = TestClient(app)
 POPULATION = Answer(
     text="Mannfjöldi 1. janúar 2026: 394.324 íbúar. Heimild: Hagstofa Íslands.",
     value=394324,
+    value_text="394.324 íbúar",
     unit="íbúar",
     period="2026",
     period_label="2026",
@@ -73,3 +74,12 @@ def test_reports_upstream_failure() -> None:
 
 def test_rejects_empty_question() -> None:
     assert client.post("/ask", json={"question": ""}).status_code == 422
+
+
+def test_serves_chat_page() -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "<title>Talnaspor</title>" in response.text
+    assert 'fetch("/ask"' in response.text

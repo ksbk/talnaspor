@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="is">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talnaspor</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --text: #1a1d23;
+    --muted: #5d6573;
+    --border: #dde1e7;
+    --accent: #0b5cad;
+    --accent-text: #ffffff;
+    --user: #e7f0fa;
+    --info-bg: #eef4fb;
+    --info-border: #b8d0ea;
+    --warn-bg: #fdf6e7;
+    --warn-border: #e8cf94;
+    --error-bg: #fbeeee;
+    --error-border: #e5b3b3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c;
+      --surface: #1d2128;
+      --text: #e8eaee;
+      --muted: #9aa3b2;
+      --border: #333a45;
+      --accent: #5ea4ec;
+      --accent-text: #0b1220;
+      --user: #1f3047;
+      --info-bg: #1b2736;
+      --info-border: #2f4d70;
+      --warn-bg: #2e2717;
+      --warn-border: #6b5526;
+      --error-bg: #301c1d;
+      --error-border: #6e3436;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+  }
+  header h1 { margin: 0; font-size: 1.75rem; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  form {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0 12px;
+  }
+  input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    font: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+  form button {
+    padding: 12px 18px;
+    color: var(--accent-text);
+    background: var(--accent);
+    border: 0;
+    font-weight: 600;
+  }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  .examples button {
+    padding: 6px 12px;
+    font-size: 0.875rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  #log { display: flex; flex-direction: column; gap: 16px; }
+  .exchange { display: flex; flex-direction: column; gap: 8px; }
+  .question {
+    align-self: flex-end;
+    max-width: 85%;
+    padding: 8px 14px;
+    background: var(--user);
+    border-radius: 14px 14px 4px 14px;
+  }
+  .reply {
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .reply.clarification { background: var(--info-bg); border-color: var(--info-border); }
+  .reply.refusal { background: var(--warn-bg); border-color: var(--warn-border); }
+  .reply.error { background: var(--error-bg); border-color: var(--error-border); }
+  .reply.loading { color: var(--muted); }
+  .figure { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+  .labels { color: var(--muted); margin: 2px 0 10px; }
+  .sentence { margin: 0 0 10px; }
+  .meta { font-size: 0.875rem; color: var(--muted); }
+  .meta a { color: var(--accent); }
+  details { margin-top: 10px; font-size: 0.875rem; }
+  summary { cursor: pointer; color: var(--muted); }
+  pre {
+    margin: 8px 0 0;
+    padding: 10px;
+    overflow-x: auto;
+    background: var(--bg);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Talnaspor</h1>
+    <p>Spurðu um verðbólgu eða mannfjölda. Svörin koma beint úr opinberum gögnum Hagstofu Íslands.</p>
+  </header>
+
+  <form id="ask">
+    <label for="question" hidden>Spurning</label>
+    <input id="question" type="text" maxlength="500" autocomplete="off" required
+           placeholder="t.d. Hver er verðbólgan núna?">
+    <button id="send" type="submit">Spyrja</button>
+  </form>
+
+  <div class="examples" aria-label="Dæmi um spurningar">
+    <button type="button">Hver er verðbólgan núna?</button>
+    <button type="button">Hvað búa margir á Íslandi?</button>
+    <button type="button">Verðbólga í september 2025</button>
+    <button type="button">Verðbólga án húsnæðis í mars 2026</button>
+    <button type="button">Hver var fjölgun íbúa árið 2024?</button>
+    <button type="button">Verðbólga árið 2024</button>
+  </div>
+
+  <section id="log" aria-live="polite"></section>
+</main>
+
+<script>
+  const form = document.getElementById("ask");
+  const input = document.getElementById("question");
+  const log = document.getElementById("log");
+
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function details(summary, content) {
+    const box = element("details");
+    box.append(element("summary", "", summary), element("pre", "", content));
+    return box;
+  }
+
+  function renderAnswer(reply, body) {
+    const answer = body.answer;
+    const labels = Object.values(answer.labels).filter((label) => label !== answer.period);
+    labels.push(answer.period_label);
+
+    const source = element("p", "meta");
+    const link = element("a", "", answer.table_title);
+    link.href = answer.page_url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    source.append("Opna töflu hjá Hagstofu: ", link);
+
+    reply.append(
+      element("div", "figure", answer.value_text),
+      element("div", "labels", labels.join(" · ")),
+      element("p", "sentence", body.message),
+      source,
+      element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"),
+    );
+    if (answer.status) {
+      reply.append(element("p", "meta", "Athugasemd Hagstofu: " + answer.status));
+    }
+    reply.append(details("Sýna fyrirspurn til Hagstofu", JSON.stringify(
+      { tafla: answer.api_url, val: answer.selections }, null, 2)));
+  }
+
+  function render(reply, body) {
+    reply.className = "reply " + body.status;
+    reply.textContent = "";
+    if (body.status === "answer") {
+      renderAnswer(reply, body);
+      return;
+    }
+    reply.append(element("p", "sentence", body.message));
+    if (body.detail) reply.append(details("Nánar", body.detail));
+    reply.append(element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"));
+  }
+
+  async function ask(question) {
+    const exchange = element("article", "exchange");
+    const reply = element("div", "reply loading", "Sæki gögn frá Hagstofu Íslands…");
+    exchange.append(element("div", "question", question), reply);
+    log.prepend(exchange);
+
+    try {
+      const response = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const body = await response.json();
+      if (response.status === 422) {
+        render(reply, { status: "clarification", message: "Skrifaðu spurningu (að hámarki 500 stafir).", elapsed_ms: 0 });
+      } else {
+        render(reply, body);
+      }
+    } catch (error) {
+      reply.className = "reply error";
+      reply.textContent = "Ekki náðist samband við þjóninn. Reyndu aftur.";
+    }
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const question = input.value.trim();
+    if (!question) return;
+    input.value = "";
+    ask(question);
+  });
+
+  document.querySelectorAll(".examples button").forEach((button) => {
+    button.addEventListener("click", () => ask(button.textContent));
+  });
+</script>
+</body>
+</html>

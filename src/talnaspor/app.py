@@ -1,17 +1,20 @@
-"""FastAPI application exposing Talnaspor's question endpoint."""
+"""FastAPI application exposing Talnaspor's chat page and question endpoint."""
 
 import time
+from pathlib import Path
 from typing import Literal
 
 import requests
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from talnaspor.answer import Answer, answer
 from talnaspor.interpret import Clarification, interpret
 
 app = FastAPI(title="Talnaspor")
+
+INDEX = Path(__file__).parent / "static" / "index.html"
 
 
 class AskRequest(BaseModel):
@@ -27,6 +30,12 @@ class AskResponse(BaseModel):
     answer: Answer | None = None
     detail: str | None = None
     elapsed_ms: int
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    """Serve the browser chat page."""
+    return FileResponse(INDEX)
 
 
 @app.post("/ask", response_model=AskResponse)

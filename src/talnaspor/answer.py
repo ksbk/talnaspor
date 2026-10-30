@@ -35,6 +35,7 @@ class Answer(BaseModel):
 
     text: str
     value: int | float
+    value_text: str
     unit: str
     period: str
     period_label: str
@@ -88,6 +89,7 @@ def answer(table_key: str, selections: Mapping[str, str]) -> Answer:
     return Answer(
         text=text,
         value=observation.value,
+        value_text=value_text,
         unit=measure.unit,
         period=period,
         period_label=period_label,

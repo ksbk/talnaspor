@@ -36,6 +36,7 @@ def test_answers_cpi_annual_change() -> None:
         "Heimild: Hagstofa Íslands, Vísitala neysluverðs og breytingar, grunnur 1988=100."
     )
     assert result.value == 5.9
+    assert result.value_text == "5,9%"
     assert result.unit == "%"
     assert result.period == "2026M09"
     assert result.labels["Liður"] == "Ársbreyting, %"
