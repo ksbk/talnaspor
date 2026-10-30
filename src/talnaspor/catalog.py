@@ -275,11 +275,18 @@ def search(question: str, limit: int = 5, minimum_score: float = 3.0) -> list[Ta
     return [_hit(tables[index], scores[index]) for index in ranked[:limit]]
 
 
+# Words that name a category within tables (sex) rather than a topic. They are rare in
+# titles only because of tables of first names, so they must not be taken as the topic.
+CATEGORY_TERMS = frozenset(
+    {"kvenna", "karla", "konur", "karlar", "women", "men", "female", "females", "male", "males"}
+)
+
+
 def topic_word(question: str) -> str | None:
     """The question word that matches the fewest tables, which usually names the topic."""
     _, _, idf = _index()
     rarest: tuple[float, str] | None = None
-    for word in question_words(question):
+    for word in question_words(question) - CATEGORY_TERMS:
         counts = [math.exp(-idf[known]) for known in idf if _match(word, known) == 1.0]
         if counts:
             share = sum(counts)

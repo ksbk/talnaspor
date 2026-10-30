@@ -649,7 +649,7 @@
       "id": "cat-08",
       "question": "Kosningaþátttaka 2024 hlutfall",
       "expect": "catalog",
-      "table_path": "Ibuar/kosningar/althingi/althkjosendur/KOS02101a.px",
+      "table_path": "Ibuar/kosningar/forsetakosningar/KOS07003.px",
       "period": "2024",
       "labels": {
         "Kyn": "Alls",
@@ -658,11 +658,12 @@
         "Kjördæmi": "Allt landið"
       },
       "values": [
-        80.2
+        80.7
       ],
       "periods": [
         "2024"
-      ]
+      ],
+      "note": "2024 had a presidential and a parliamentary election; this answers the presidential one and names it in the source."
     },
     {
       "id": "cat-09",
@@ -1015,11 +1016,23 @@
       "limitation": "\"Last month\" is ambiguous between the calendar month and the latest published month, so it gets a clarification."
     },
     {
-      "id": "lim-03",
+      "id": "cat-10",
       "question": "Atvinnuleysi kvenna 2025",
-      "expect": "suggestions",
-      "table": "VIN00910.px",
-      "limitation": "Answers from catalog tables need every dimension settled; here the best table also needs an age group, so Talnaspor asks for it instead of answering."
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+      "period": "2025",
+      "labels": {
+        "Landsvæði": "Alls",
+        "Kyn": "Konur",
+        "Aldur": "Alls",
+        "Eining": "Atvinnuleysi"
+      },
+      "values": [
+        4.3
+      ],
+      "periods": [
+        "2025"
+      ]
     }
   ]
 }

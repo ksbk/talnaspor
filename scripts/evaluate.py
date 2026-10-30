@@ -7,6 +7,7 @@ Writes evaluation/results.md as a table suitable for the presentation.
 
 import json
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from talnaspor.app import app
 
 QUESTIONS = Path("evaluation/questions.json")
 RESULTS = Path("evaluation/results.md")
+PAUSE_SECONDS = 1.5
 
 
 def check(item: dict[str, Any], body: dict[str, Any]) -> str:
@@ -84,7 +86,11 @@ def main() -> None:
     outcomes: dict[str, int] = {}
     limitations: list[str] = []
 
-    for item in document["questions"]:
+    for number, item in enumerate(document["questions"]):
+        if number:
+            # Statistics Iceland limits requests (about 30 per 10 seconds), and a catalog
+            # question can make many; pausing keeps the evaluation within the limit.
+            time.sleep(PAUSE_SECONDS)
         lang = item.get("lang", "is")
         body = client.post("/ask", json={"question": item["question"], "lang": lang}).json()
         outcome = check(item, body)

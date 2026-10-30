@@ -98,7 +98,8 @@ def candidates(question: str, tables: list[TableHit]) -> list[TableHit]:
     question, so the best tables for its most distinctive word are tried as well.
     """
     topic = topic_word(question)
-    by_topic = search(topic, limit=5) if topic else []
+    # Many tables can tie on a topic word, so look past the first few.
+    by_topic = search(topic, limit=10) if topic else []
 
     def ranked(hits: list[TableHit]) -> list[TableHit]:
         # On equal scores, a shorter title is usually the more general table.
@@ -154,7 +155,7 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         tables = [] if interpretation.recognized else search(question, limit=10)
         if not tables:
             return respond(status="clarification", message=interpretation.text(lang))
-        planned = plan_answer(question, candidates(question, tables), lang=lang)
+        planned = plan_answer(question, candidates(question, tables), attempts=12, lang=lang)
         if isinstance(planned, Answer):
             others = [t for t in tables if t.api_url != planned.api_url][:4]
             return respond(status="answer", message=planned.text, answer=planned, tables=others)

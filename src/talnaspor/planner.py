@@ -56,6 +56,14 @@ TOTALS = frozenset(
 )
 YEAR = re.compile(r"\b([12]\d{3})\b")
 
+# General-knowledge questions that share words with statistical tables ("capital of
+# Iceland" is not about capital transfers); they get suggestions, never a figure.
+GENERAL_KNOWLEDGE = re.compile(r"\b(capital of|capital city|hofudborg)")
+
+# Category labels led by an accounting code ("00-00-00 Number") are line items that a
+# plain question is unlikely to mean, and that a reader cannot interpret.
+CODED_LABEL = re.compile(r"^\d{2}-\d{2}-\d{2}\b")
+
 # Words too common to find tables by, but which name categories such as "Fjöldi".
 CATEGORY_WORDS = frozenset({"fjoldi"})
 
@@ -142,6 +150,8 @@ def plan_answer(
     year = years[0] if years else None
     oldest = None if year else str((today or date.today()).year - RECENT_YEARS)
 
+    if GENERAL_KNOWLEDGE.search(text):
+        return None
     words = question_words(question, keep=CATEGORY_WORDS) - MONTH_WORDS
     # Numbers other than the year can name categories such as "16-74 ára".
     numbers = set(re.findall(r"\d+", normalize(question))) - set(years)
@@ -163,6 +173,8 @@ def plan_answer(
             translated = _aligned(metadata, english)
             if not _accounts_for(words, phrases, metadata, hit, translated):
                 continue
+            if not _names_topic(words, phrases, metadata, hit, english):
+                continue
             # A series that has stopped cannot answer a question about the present.
             if oldest and max(_texts(time_variable))[:4] < oldest:
                 continue
@@ -178,6 +190,11 @@ def plan_answer(
                 continue
             observation = data.observations[0]
             labels = _labels(observation.codes, observation.labels, metadata, translated)
+            if any(
+                CODED_LABEL.match(label)
+                for label in [*observation.labels.values(), *labels.values()]
+            ):
+                continue
             unit = get_units(hit.api_url, query, list(labels.values()), lang)
         except (requests.RequestException, ValueError):
             continue
@@ -343,6 +360,26 @@ def _accounts_for(
         if not any(_match(word, term) for word in qualifier_words for term in words):
             return False
     return True
+
+
+def _names_topic(
+    words: set[str],
+    phrases: list[tuple[str, tuple[str, ...]]],
+    metadata: PXMetadata,
+    hit: TableHit,
+    english: PXMetadata | None,
+) -> bool:
+    """Whether a question word (or a term related to one) fully names a word in the title.
+
+    Fragments are not enough: "laun" (wages) only partly matches "launuðu" (paid), and
+    the table of staff on paid leave does not answer a question about wages.
+    """
+    titles = [metadata.title, hit.title_en or "", english.title if english else ""]
+    title_words = {word for title in titles for word in TOKEN.findall(normalize(title))}
+    terms = set(words) - CATEGORY_WORDS
+    for _, related in phrases:
+        terms.update(related)
+    return any(_match(term, word) == 1.0 for term in terms for word in title_words)
 
 
 def _time_variable(metadata: PXMetadata) -> PXVariable | None:

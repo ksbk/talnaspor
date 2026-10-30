@@ -176,7 +176,7 @@ def test_skips_series_that_have_stopped() -> None:
 
 
 def test_offers_the_one_choice_that_would_settle_a_table() -> None:
-    result, calls = run("Hvernig er vinnumarkaðurinn?", "{}")
+    result, calls = run("Atvinnuþátttaka á vinnumarkaði", "{}")
 
     assert isinstance(result, Choice)
     assert result.dimension == "Eining"
@@ -333,3 +333,30 @@ def test_does_not_answer_a_month_from_a_table_without_it() -> None:
 
 def test_skips_annual_tables_for_a_question_about_a_month() -> None:
     assert run("Atvinnuleysi í mars 2025", "{}") == (None, 0)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # Only a fragment of the title matches: "laun" (wages) and "launuðu" (paid).
+        "Atvinnulaun",
+        # A general-knowledge question that shares a word with statistical tables.
+        "What is the capital of Iceland?",
+    ],
+)
+def test_does_not_answer_without_a_full_title_match(question: str) -> None:
+    assert run(question, "{}") == (None, 0)
+
+
+def test_skips_categories_labelled_with_accounting_codes() -> None:
+    coded = response(
+        {
+            "Ár": ("1", "2025"),
+            "Kyn": ("0", "Karlar og konur"),
+            "Aldur": ("0", "Alls"),
+            "Eining": ("0", "00-00-00 Atvinnuleysi"),
+        },
+        4.3,
+    )
+
+    assert run("Atvinnuleysi", coded)[0] is None

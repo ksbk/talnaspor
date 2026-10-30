@@ -1,0 +1,21 @@
+{
+  "purpose": "Held-out questions, never used to tune the rules, for comparing interpreters (deterministic now; an LLM-assisted interpreter later) on the same inputs. 'ideal' is the behaviour a trustworthy assistant should show; 'baseline' is the deterministic result on 2026-10-30 after the planner guards.",
+  "questions": [
+    {"lang": "is", "category": "unfamiliar phrasing", "question": "Hvað var verðbólgan há í ágúst 2025?", "ideal": "answer: CPI annual change, August 2025", "baseline": "answer 3,8% (2025M08), correct"},
+    {"lang": "is", "category": "unfamiliar phrasing", "question": "Hve mikið hækkaði verðlag á milli ára í júlí 2026?", "ideal": "answer: CPI annual change, July 2026", "baseline": "answer 5,3% (2026M07), correct"},
+    {"lang": "is", "category": "unfamiliar phrasing", "question": "Íbúafjöldi landsins 2010", "ideal": "answer: population, 2010", "baseline": "answer 317.630 (2010), correct"},
+    {"lang": "is", "category": "unfamiliar phrasing", "question": "Hversu stór er þjóðin?", "ideal": "answer: population, latest", "baseline": "suggestions; missed"},
+    {"lang": "en", "category": "unfamiliar phrasing", "question": "What's the current CPI inflation rate?", "ideal": "answer: CPI annual change, latest", "baseline": "answer 5.9% (2026M10), correct"},
+    {"lang": "en", "category": "unfamiliar phrasing", "question": "How big is Iceland's population today?", "ideal": "answer: population, latest", "baseline": "answer 394,324 (2026), correct"},
+    {"lang": "en", "category": "unfamiliar phrasing", "question": "Did prices rise faster in 2026 than in 2025, in September?", "ideal": "comparison: CPI annual change, September 2025 and 2026", "baseline": "suggestions; missed"},
+    {"lang": "en", "category": "unfamiliar phrasing", "question": "What share of the labour force is unemployed?", "ideal": "answer: unemployment rate", "baseline": "suggestions; missed"},
+    {"lang": "is", "category": "missing period", "question": "Hver var verðbólgan?", "ideal": "answer latest, stating the period", "baseline": "answer 5,9% (2026M10), correct"},
+    {"lang": "en", "category": "missing period", "question": "Population growth", "ideal": "answer the latest published growth, or clarify", "baseline": "refusal: latest year not published; safe but unhelpful"},
+    {"lang": "is", "category": "ambiguous", "question": "Laun", "ideal": "clarification or suggestions", "baseline": "suggestions, correct (was a wrong answer before the guards)"},
+    {"lang": "en", "category": "ambiguous", "question": "How did it change?", "ideal": "clarification", "baseline": "not found, safe"},
+    {"lang": "is", "category": "unsupported", "question": "Hver vinnur heimsmeistaramótið í fótbolta?", "ideal": "not found", "baseline": "suggestions (sports tables); acceptable"},
+    {"lang": "en", "category": "unsupported", "question": "What is the capital of Iceland?", "ideal": "not found", "baseline": "suggestions, safe (was a wrong answer before the guards)"},
+    {"lang": "en", "category": "other topic", "question": "How many sheep are there in Iceland?", "ideal": "answer from livestock tables, or suggestions", "baseline": "suggestions, safe (was a wrong answer before the guards)"},
+    {"lang": "is", "category": "other topic", "question": "Hvað voru margar gistinætur á hótelum í júlí 2025?", "ideal": "answer: hotel nights, July 2025", "baseline": "answer 849.195 (2025M07), correct"}
+  ]
+}

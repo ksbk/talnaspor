@@ -164,11 +164,14 @@ format.
 make evaluate    # Ask every question live and write evaluation/results.md
 ```
 
-Latest run: **60 pass, 2 documented limitations, 0 failures**. This includes 14 answers
+Latest run: **61 pass, 1 documented limitation, 0 failures**. This includes 14 answers
 from catalog tables, each checked for the table, period and figure (and, in Icelandic,
 every selected value), 4 refusals, and 3 questions where the expected table must be
 among those suggested. See
-[evaluation/results.md](evaluation/results.md). Every question's interpretation is also
+[evaluation/results.md](evaluation/results.md). The script pauses between questions to stay
+within Statistics Iceland's request limit.
+[evaluation/heldout.json](evaluation/heldout.json) holds 16 further questions, never used to
+tune the rules, for comparing interpreters. Every question's interpretation is also
 checked offline by `make check`.
 
 ## Known limitations
