@@ -1,6 +1,7 @@
 """HTTP access to Statistics Iceland's PX-Web API."""
 
 import json
+import re
 from typing import Self
 
 import requests
@@ -68,3 +69,30 @@ def get_data(
     )
     response.raise_for_status()
     return response.text
+
+
+def get_units(table_url: str, query: dict[str, object], labels: list[str]) -> str | None:
+    """Return the unit Statistics Iceland states for a query's values, if any.
+
+    The JSON formats carry no units, so the same query is requested in PX format,
+    whose UNITS keyword may be general or specific to a category of the content
+    dimension. A unit specific to one of the given category labels takes precedence.
+    """
+    response = requests.post(
+        table_url,
+        data=json.dumps({**query, "response": {"format": "px"}}),
+        headers={"Content-Type": "application/json"},
+        timeout=20,
+    )
+    response.raise_for_status()
+    codepage = re.search(rb'CODEPAGE="([^"]+)"', response.content)
+    text = response.content.decode(codepage[1].decode() if codepage else "utf-8", "replace")
+
+    general: str | None = None
+    unit: str
+    for key, unit in re.findall(r'^UNITS(?:\("([^"]*)"\))?="([^"]*)";', text, re.MULTILINE):
+        if key in labels:
+            return unit
+        if not key:
+            general = unit
+    return general

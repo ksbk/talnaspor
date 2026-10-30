@@ -1,6 +1,6 @@
 {
   "as_of": "2026-10-30",
-  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate. Suggestions pass when the named table is among the tables suggested.",
+  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate. Suggestions pass when the named table is among the tables suggested. Catalog answers pass when the table, period, every selected category and the value match.",
   "questions": [
     {
       "id": "cpi-01",
@@ -521,40 +521,154 @@
       ]
     },
     {
-      "id": "find-01",
+      "id": "cat-01",
       "question": "Hversu margir eru atvinnulausir á Íslandi?",
-      "expect": "suggestions",
-      "table": "VIN01206.px"
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/2_arsfjordungstolur/VIN01206.px",
+      "period": "2026Á2",
+      "labels": {
+        "Lengd atvinnuleitar": "Alls",
+        "Eining": "Fjöldi"
+      },
+      "values": [
+        15400
+      ],
+      "periods": [
+        "2026Á2"
+      ]
     },
     {
-      "id": "find-02",
+      "id": "cat-02",
       "question": "What is the unemployment rate?",
-      "expect": "suggestions",
-      "table": "VIN01002.px"
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+      "period": "2025",
+      "labels": {
+        "Landsvæði": "Alls",
+        "Kyn": "Karlar og konur",
+        "Aldur": "Alls",
+        "Eining": "Atvinnuleysi"
+      },
+      "values": [
+        4.3
+      ],
+      "periods": [
+        "2025"
+      ]
     },
     {
-      "id": "find-03",
+      "id": "cat-03",
+      "question": "Atvinnuleysi 16-74 ára",
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN00911.px",
+      "period": "2025",
+      "labels": {
+        "Landsvæði": "Alls",
+        "Kyn": "Alls",
+        "Aldur": "16-74 ára",
+        "Hlutfall, %": "Atvinnuleysi, % (af vinnuafli)"
+      },
+      "values": [
+        4.3
+      ],
+      "periods": [
+        "2025"
+      ]
+    },
+    {
+      "id": "cat-04",
       "question": "Hver er munurinn á launum karla og kvenna?",
-      "expect": "suggestions",
-      "table": "VIN02010.px"
+      "expect": "catalog",
+      "table_path": "Samfelag/launogtekjur/1_laun/1_laun/VIN02010.px",
+      "period": "2024",
+      "labels": {
+        "Hópur": "Alls",
+        "Mæling": "Launamunur"
+      },
+      "values": [
+        10.4
+      ],
+      "periods": [
+        "2024"
+      ]
+    },
+    {
+      "id": "cat-05",
+      "question": "Hver er landsframleiðslan?",
+      "expect": "catalog",
+      "table_path": "Efnahagur/thjodhagsreikningar/landsframl/1_landsframleidsla/THJ01102.px",
+      "period": "2025",
+      "labels": {
+        "Skipting": "8. Verg landsframleiðsla"
+      },
+      "values": [
+        4941211
+      ],
+      "periods": [
+        "2025"
+      ]
+    },
+    {
+      "id": "cat-06",
+      "question": "Hver er kosningaþátttaka?",
+      "expect": "catalog",
+      "table_path": "Ibuar/kosningar/althingi/althkjosendur/KOS02101.px",
+      "period": "2024",
+      "labels": {
+        "Sveitarfélag": "Allt landið",
+        "Skipting": "Kosningaþátttaka, %",
+        "Kyn": "Alls"
+      },
+      "values": [
+        80.2
+      ],
+      "periods": [
+        "2024"
+      ]
+    },
+    {
+      "id": "cat-07",
+      "question": "Kosningaþátttaka 2024 fjöldi",
+      "expect": "catalog",
+      "table_path": "Ibuar/kosningar/althingi/althkjosendur/KOS02101a.px",
+      "period": "2024",
+      "labels": {
+        "Kyn": "Alls",
+        "Aldur": "Alls",
+        "Eining": "Fjöldi",
+        "Kjördæmi": "Allt landið"
+      },
+      "values": [
+        215173
+      ],
+      "periods": [
+        "2024"
+      ]
+    },
+    {
+      "id": "cat-08",
+      "question": "Kosningaþátttaka 2024 hlutfall",
+      "expect": "catalog",
+      "table_path": "Ibuar/kosningar/althingi/althkjosendur/KOS02101a.px",
+      "period": "2024",
+      "labels": {
+        "Kyn": "Alls",
+        "Aldur": "Alls",
+        "Eining": "Hlutfall, %",
+        "Kjördæmi": "Allt landið"
+      },
+      "values": [
+        80.2
+      ],
+      "periods": [
+        "2024"
+      ]
     },
     {
       "id": "find-04",
       "question": "How many tourists visit Iceland?",
       "expect": "suggestions",
       "table": "SAM08005.px"
-    },
-    {
-      "id": "find-05",
-      "question": "Hver er landsframleiðslan?",
-      "expect": "suggestions",
-      "table": "THJ01102.px"
-    },
-    {
-      "id": "find-06",
-      "question": "Hver er kosningaþátttaka?",
-      "expect": "suggestions",
-      "table": "KOS02101.px"
     },
     {
       "id": "find-07",
@@ -632,6 +746,13 @@
       "expect": "clarification",
       "message": "afstæð tímabil",
       "limitation": "\"Last month\" is ambiguous between the calendar month and the latest published month, so it gets a clarification."
+    },
+    {
+      "id": "lim-03",
+      "question": "Atvinnuleysi kvenna 2025",
+      "expect": "suggestions",
+      "table": "VIN00910.px",
+      "limitation": "Answers from catalog tables need every dimension settled; here the best table also needs an age group, so Talnaspor asks for it instead of answering."
     }
   ]
 }

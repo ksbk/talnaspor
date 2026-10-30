@@ -48,6 +48,24 @@ def fetch(table: str, selections: dict[str, str], periods: list[str]) -> list[in
     return [parse(by_period[period]) for period in periods]
 
 
+def fetch_catalog(path: str, period: str, labels: dict[str, str]) -> list[int | float | None]:
+    """Fetch one value from any table, selecting categories by their labels."""
+    url = "https://px.hagstofa.is/pxis/api/v1/is/" + path
+    variables = requests.get(url, timeout=20).json()["variables"]
+    query = []
+    for variable in variables:
+        texts = variable.get("valueTexts") or variable["values"]
+        codes = dict(zip(texts, variable["values"], strict=True))
+        label = labels.get(variable["code"], period if period in codes else None)
+        query.append(
+            {"code": variable["code"], "selection": {"filter": "item", "values": [codes[label]]}}
+        )
+
+    response = requests.post(url, json={"query": query, "response": {"format": "json"}}, timeout=20)
+    response.raise_for_status()
+    return [parse(response.json()["data"][0]["values"][0])]
+
+
 def parse(text: str) -> int | float | None:
     if text.strip() in {"", ".", "..", "..."}:
         return None
@@ -59,10 +77,14 @@ def main() -> None:
     mismatches = 0
 
     for item in document["questions"]:
-        if "periods" not in item:
+        if item["expect"] == "catalog":
+            values = fetch_catalog(item["table_path"], item["period"], item["labels"])
+            item["periods"] = [item["period"]]
+        elif "periods" in item:
+            interpretation = item["interpretation"]
+            values = fetch(interpretation["table"], interpretation["selections"], item["periods"])
+        else:
             continue
-        interpretation = item["interpretation"]
-        values = fetch(interpretation["table"], interpretation["selections"], item["periods"])
         recorded = item.get("values")
         status = "new" if recorded is None else ("ok" if recorded == values else "MISMATCH")
         mismatches += status == "MISMATCH"

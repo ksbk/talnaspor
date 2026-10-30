@@ -128,6 +128,10 @@ STOPWORDS = frozenset(
         "year",
         "years",
         "fjoldi",
+        "munur",
+        "munurinn",
+        "muninn",
+        "difference",
         "kostar",
         "kosta",
         "kostadi",
@@ -163,6 +167,7 @@ class TableHit(BaseModel):
     title_en: str | None
     folders: list[str]
     updated: str | None
+    folders_en: list[str] = []
     page_url: str
     api_url: str
     score: float
@@ -174,6 +179,13 @@ RELATED_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("atvinnulaus", ("atvinnuleysi",)),
     ("unemploy", ("atvinnuleysi",)),
     ("karla og kvenna", ("launamunur", "kynjanna")),
+    ("kvenna", ("konur",)),
+    ("women", ("konur",)),
+    ("hversu margir", ("fjoldi",)),
+    ("hve margir", ("fjoldi",)),
+    ("how many", ("fjoldi",)),
+    ("prosent", ("hlutfall",)),
+    ("percent", ("hlutfall",)),
     ("kynjanna", ("launamunur",)),
     ("gender pay", ("launamunur", "kynjanna")),
     ("medallaun", ("laun", "regluleg")),
@@ -190,14 +202,39 @@ RELATED_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
 CURRENT_SINCE = "2022"
 
 
+def question_words(question: str, keep: frozenset[str] = frozenset()) -> set[str]:
+    """The normalized words in a question that can identify tables or categories.
+
+    Numbers are left out: years are handled as periods, and numbers in titles are
+    mostly year ranges that say nothing about the topic.
+    """
+    return {
+        t
+        for t in TOKEN.findall(normalize(question))
+        if (t in keep or t not in STOPWORDS) and len(t) > 2 and not t.isdigit()
+    }
+
+
+def related_phrases(question: str) -> list[tuple[str, tuple[str, ...]]]:
+    """The RELATED_TERMS entries whose phrase starts a word in the question."""
+    text = normalize(question)
+    return [
+        (phrase, related) for phrase, related in RELATED_TERMS if re.search(rf"\b{phrase}", text)
+    ]
+
+
+def query_terms(question: str) -> set[str]:
+    """Question words plus the title words related to them."""
+    terms = question_words(question)
+    for _, related in related_phrases(question):
+        terms.update(related)
+    return terms
+
+
 def search(question: str, limit: int = 5, minimum_score: float = 3.0) -> list[TableHit]:
     """Rank catalog tables by how well their titles and folders match the question."""
     tables, documents, idf = _index()
-    text = normalize(question)
-    terms = {t for t in TOKEN.findall(text) if t not in STOPWORDS and len(t) > 2}
-    for phrase, related in RELATED_TERMS:
-        if phrase in text:
-            terms.update(related)
+    terms = query_terms(question)
     if not terms:
         return []
 
@@ -219,7 +256,7 @@ def search(question: str, limit: int = 5, minimum_score: float = 3.0) -> list[Ta
                 scores[index] += best
 
     for index in scores:
-        if (tables[index].updated or "") < CURRENT_SINCE:
+        if not is_current(tables[index].updated):
             scores[index] *= 0.85
 
     ranked = sorted(
@@ -230,6 +267,24 @@ def search(question: str, limit: int = 5, minimum_score: float = 3.0) -> list[Ta
     return [_hit(tables[index], scores[index]) for index in ranked[:limit]]
 
 
+def topic_word(question: str) -> str | None:
+    """The question word that matches the fewest tables, which usually names the topic."""
+    _, _, idf = _index()
+    rarest: tuple[float, str] | None = None
+    for word in question_words(question):
+        counts = [math.exp(-idf[known]) for known in idf if _match(word, known) == 1.0]
+        if counts:
+            share = sum(counts)
+            if rarest is None or share < rarest[0]:
+                rarest = (share, word)
+    return rarest[1] if rarest else None
+
+
+def is_current(updated: str | None) -> bool:
+    """Whether a table has been updated recently enough to still be maintained."""
+    return (updated or "") >= CURRENT_SINCE
+
+
 def _match(term: str, word: str) -> float:
     """Score how well two word forms match, allowing for Icelandic inflection.
 
@@ -237,6 +292,8 @@ def _match(term: str, word: str) -> float:
     "ferdamanna") or the start of a compound ("kosning", "kosningathatttaka") is a weaker
     one; anything else does not match.
     """
+    if term == word:
+        return 1.0
     shorter = min(len(term), len(word))
     common = 0
     for left, right in zip(term, word, strict=False):
@@ -280,6 +337,7 @@ def _hit(table: CatalogTable, score: float) -> TableHit:
         title=table.title,
         title_en=table.title_en,
         folders=table.folders,
+        folders_en=table.folders_en,
         updated=table.updated,
         page_url=f"{PAGE_BASE}{folders[0]}/{'__'.join(folders)}/{file}",
         api_url=API_BASE + table.path,

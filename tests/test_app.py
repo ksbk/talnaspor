@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from talnaspor.answer import LATEST, Answer
 from talnaspor.app import app
+from talnaspor.planner import Choice
 from talnaspor.pxweb import PXMetadata
 
 client = TestClient(app)
@@ -75,13 +76,43 @@ def test_reports_upstream_failure() -> None:
 
 
 def test_suggests_tables_for_unsupported_topics() -> None:
-    response = client.post("/ask", json={"question": "Hversu margir eru atvinnulausir?"})
+    with patch("talnaspor.app.plan_answer", return_value=None):
+        response = client.post("/ask", json={"question": "Hversu margir eru atvinnulausir?"})
 
     body = response.json()
     assert body["status"] == "suggestions"
     assert "töflur Hagstofu" in body["message"]
     assert any("Atvinnulausir" in table["title"] for table in body["tables"])
     assert body["answer"] is None
+
+
+def test_answers_from_a_catalog_table() -> None:
+    planned = POPULATION.model_copy(
+        update={
+            "kind": "catalog",
+            "api_url": "https://px.hagstofa.is/pxis/api/v1/is/Samfelag/x/VIN00001.px",
+        }
+    )
+    with patch("talnaspor.app.plan_answer", return_value=planned) as plan_answer:
+        response = client.post("/ask", json={"question": "Hversu margir eru atvinnulausir?"})
+
+    body = response.json()
+    assert body["status"] == "answer"
+    assert body["answer"]["kind"] == "catalog"
+    assert body["message"] == planned.text
+    assert all(table["api_url"] != planned.api_url for table in body["tables"])
+    plan_answer.assert_called_once()
+
+
+def test_names_the_choice_a_table_needs() -> None:
+    choice = Choice("Kosningaþátttaka 2016-2024", "Eining", ["Fjöldi", "Hlutfall, %"])
+    with patch("talnaspor.app.plan_answer", return_value=choice):
+        response = client.post("/ask", json={"question": "Hver var kosningaþátttaka árið 2024?"})
+
+    body = response.json()
+    assert body["status"] == "suggestions"
+    assert body["message"].startswith(choice.message())
+    assert body["tables"]
 
 
 def test_keeps_clarification_when_no_table_matches() -> None:

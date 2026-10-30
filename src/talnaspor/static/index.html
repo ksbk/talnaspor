@@ -121,6 +121,14 @@
   .points td:last-child { font-weight: 600; text-align: right; }
   .sentence { margin: 0 0 10px; }
   .meta { font-size: 0.875rem; color: var(--muted); }
+  .notice {
+    margin: 10px 0 4px;
+    padding: 6px 10px;
+    font-size: 0.875rem;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-radius: 6px;
+  }
   .meta a { color: var(--accent); }
   details { margin-top: 10px; font-size: 0.875rem; }
   summary { cursor: pointer; color: var(--muted); }
@@ -139,7 +147,7 @@
 <main>
   <header>
     <h1>Talnaspor</h1>
-    <p>Spurðu um verðbólgu eða mannfjölda. Svörin koma beint úr opinberum gögnum Hagstofu Íslands.</p>
+    <p>Spurðu um hagtölur á íslensku eða ensku. Svörin koma beint úr opinberum gögnum Hagstofu Íslands.</p>
   </header>
 
   <form id="ask">
@@ -156,6 +164,8 @@
     <button type="button">Verðbólga í september 2025 og 2026</button>
     <button type="button">Verðbólga án húsnæðis í mars 2026</button>
     <button type="button">Hver var fjölgun íbúa árið 2024?</button>
+    <button type="button">Hversu margir eru atvinnulausir á Íslandi?</button>
+    <button type="button">Hver er munurinn á launum karla og kvenna?</button>
     <button type="button">Verðbólga árið 2024</button>
   </div>
 
@@ -240,8 +250,15 @@
     const labels = Object.values(answer.labels).filter((label) => label !== answer.period);
     labels.push(answer.period_label);
 
+    // A catalog table's unit can be long ("Fjöldi/hlutfall"), so it goes on its own line.
+    const catalogUnit = answer.kind === "catalog" && answer.unit;
+    const figure = catalogUnit
+      ? answer.value_text.replace(" (" + answer.unit + ")", "")
+      : answer.value_text;
+    if (catalogUnit) labels.push("eining: " + answer.unit);
+
     reply.append(
-      element("div", "figure", answer.value_text),
+      element("div", "figure", figure),
       element("div", "labels", labels.join(" · ")),
       element("p", "sentence", body.message),
       sourceLink(answer),
@@ -249,6 +266,21 @@
     );
     if (answer.status) {
       reply.append(element("p", "meta", "Athugasemd Hagstofu: " + answer.status));
+    }
+    if (answer.kind === "catalog") {
+      const chosen = element("ul", "tables");
+      for (const [code, label] of Object.entries(answer.labels)) {
+        chosen.append(element("li", "meta", (answer.dimension_labels[code] || code) + ": " + label));
+      }
+      reply.append(
+        element("p", "notice",
+          "Sjálfvirkt valið úr töflu Hagstofu eftir orðum spurningarinnar. Athugaðu valin gildi:"),
+        chosen,
+      );
+      if (body.tables && body.tables.length) {
+        reply.append(details("Aðrar töflur um efnið",
+          body.tables.map((table) => table.title + "\n" + table.page_url).join("\n\n")));
+      }
     }
     reply.append(details("Sýna fyrirspurn til Hagstofu", JSON.stringify(
       { tafla: answer.api_url, val: answer.selections }, null, 2)));

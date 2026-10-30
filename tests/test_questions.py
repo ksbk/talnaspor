@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from talnaspor.app import candidates
 from talnaspor.catalog import search
 from talnaspor.interpret import Clarification, Interpretation, interpret
 
@@ -22,10 +23,13 @@ def test_question_is_interpreted_as_recorded(item: dict[str, Any]) -> None:
         assert isinstance(result, Clarification)
         assert item["message"] in result.message
         return
-    if item["expect"] == "suggestions":
+    if item["expect"] in ("suggestions", "catalog"):
+        # Not a curated topic: the expected table must be among those the planner tries.
         assert isinstance(result, Clarification)
         assert not result.recognized
-        assert any(hit.api_url.endswith("/" + item["table"]) for hit in search(item["question"]))
+        table = item.get("table") or item["table_path"]
+        hits = candidates(item["question"], search(item["question"], limit=10))
+        assert any(hit.api_url.endswith("/" + table) for hit in hits)
         return
 
     expected = item["interpretation"]
@@ -36,11 +40,11 @@ def test_question_is_interpreted_as_recorded(item: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize(
     "item",
-    [item for item in QUESTIONS if item["expect"] in ("answer", "comparison")],
+    [item for item in QUESTIONS if item["expect"] in ("answer", "comparison", "catalog")],
     ids=lambda item: item["id"],
 )
 def test_question_has_verified_values(item: dict[str, Any]) -> None:
-    periods = {"answer": 1, "comparison": 2}[item["expect"]]
+    periods = {"answer": 1, "comparison": 2, "catalog": 1}[item["expect"]]
 
     assert len(item["periods"]) == periods
     assert len(item["values"]) == periods

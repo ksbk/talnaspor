@@ -21,11 +21,27 @@ RESULTS = Path("evaluation/results.md")
 
 def check(item: dict[str, Any], body: dict[str, Any]) -> str:
     """Return PASS, FAIL or STALE (a newer period was published since the values were recorded)."""
-    if body["status"] != {"comparison": "answer"}.get(item["expect"], item["expect"]):
+    if body["status"] != {"comparison": "answer", "catalog": "answer"}.get(
+        item["expect"], item["expect"]
+    ):
         return "FAIL"
 
     if item["expect"] == "clarification":
         return "PASS" if item["message"] in body["message"] else "FAIL"
+    if item["expect"] == "catalog":
+        result = body["answer"]
+        if result is None or result["kind"] != "catalog":
+            return "FAIL"
+        if not result["api_url"].endswith("/" + item["table_path"]):
+            return "FAIL"
+        if result["period"] != item["period"]:
+            return "STALE"
+        chosen = {
+            code: label for code, label in result["labels"].items() if label != item["period"]
+        }
+        return (
+            "PASS" if chosen == item["labels"] and [result["value"]] == item["values"] else "FAIL"
+        )
     if item["expect"] == "suggestions":
         suggested = [table["api_url"] for table in body["tables"]]
         return "PASS" if any(url.endswith("/" + item["table"]) for url in suggested) else "FAIL"

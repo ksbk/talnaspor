@@ -3,6 +3,7 @@
 import re
 from collections.abc import Mapping
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -31,8 +32,14 @@ MONTHS = (
 
 
 class Answer(BaseModel):
-    """A source-backed answer and the evidence needed to verify it."""
+    """A source-backed answer and the evidence needed to verify it.
 
+    A "curated" answer comes from a configured table with known units and wording. A
+    "catalog" answer comes from a table found in the catalog, with dimension values
+    selected by rules from the question; its unit is not known beyond the labels.
+    """
+
+    kind: Literal["curated", "catalog"] = "curated"
     text: str
     value: int | float
     value_text: str
@@ -46,6 +53,7 @@ class Answer(BaseModel):
     selections: dict[str, str]
     labels: dict[str, str]
     status: str | None
+    dimension_labels: dict[str, str] = {}
 
 
 class Point(BaseModel):
@@ -251,6 +259,9 @@ def format_period(code: str) -> str:
     month = re.fullmatch(r"(\d{4})M(0[1-9]|1[0-2])", code)
     if month:
         return f"{MONTHS[int(month[2]) - 1]} {month[1]}"
+    quarter = re.fullmatch(r"(\d{4})[ÁQK]([1-4])", code)
+    if quarter:
+        return f"{quarter[2]}. ársfjórðungur {quarter[1]}"
     return code
 
 
@@ -264,4 +275,6 @@ def format_value(value: float, decimals: int | None, unit: str) -> str:
     own_decimals = -exponent if isinstance(exponent, int) and exponent < 0 else 0
     places = max(decimals or 0, own_decimals)
     number = f"{value:,.{places}f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    if not unit:
+        return number
     return f"{number}%" if unit == "%" else f"{number} {unit}"

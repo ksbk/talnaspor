@@ -10,8 +10,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from talnaspor.answer import Answer, Comparison, answer, compare
-from talnaspor.catalog import TableHit, search
+from talnaspor.catalog import TableHit, search, topic_word
 from talnaspor.interpret import Clarification, interpret
+from talnaspor.planner import Choice, plan_answer
 
 app = FastAPI(title="Talnaspor")
 
@@ -41,6 +42,24 @@ class AskResponse(BaseModel):
     elapsed_ms: int
 
 
+def candidates(question: str, tables: list[TableHit]) -> list[TableHit]:
+    """Tables to try answering from: the best for the whole question, then for its topic.
+
+    Words naming a category ("hlutfall") can outrank the topic in a search of the whole
+    question, so the best tables for its most distinctive word are tried as well.
+    """
+    topic = topic_word(question)
+    by_topic = search(topic, limit=5) if topic else []
+
+    def ranked(hits: list[TableHit]) -> list[TableHit]:
+        # On equal scores, a shorter title is usually the more general table.
+        return sorted(hits, key=lambda hit: (-hit.score, len(hit.title)))
+
+    ordered = ranked(tables[:5]) + ranked(by_topic) + ranked(tables[5:])
+    unique = {hit.api_url: hit for hit in reversed(ordered)}
+    return sorted(unique.values(), key=ordered.index)
+
+
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     """Serve the browser chat page."""
@@ -60,10 +79,21 @@ def ask(request: AskRequest) -> AskResponse | JSONResponse:
 
     interpretation = interpret(request.question)
     if isinstance(interpretation, Clarification):
-        tables = [] if interpretation.recognized else search(request.question)
-        if tables:
-            return respond(status="suggestions", message=SUGGESTIONS, tables=tables)
-        return respond(status="clarification", message=interpretation.message)
+        tables = [] if interpretation.recognized else search(request.question, limit=10)
+        if not tables:
+            return respond(status="clarification", message=interpretation.message)
+        planned = plan_answer(request.question, candidates(request.question, tables))
+        if isinstance(planned, Answer):
+            others = [t for t in tables if t.api_url != planned.api_url][:4]
+            return respond(status="answer", message=planned.text, answer=planned, tables=others)
+        message = SUGGESTIONS
+        if isinstance(planned, Choice):
+            message = f"{planned.message()} {SUGGESTIONS}"
+            if planned.table:
+                # The table the choice refers to comes first.
+                others = [t for t in tables if t.api_url != planned.table.api_url]
+                tables = [planned.table, *others]
+        return respond(status="suggestions", message=message, tables=tables[:5])
 
     context = {
         "table": interpretation.table,
