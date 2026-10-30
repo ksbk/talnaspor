@@ -137,6 +137,7 @@ checked offline by `make check`.
 - **Data:** Statistics Iceland (Hagstofa Íslands), retrieved live from
   [px.hagstofa.is](https://px.hagstofa.is).
 - **Design decision:** [docs/adr/001-separate-retrieval.md](docs/adr/001-separate-retrieval.md).
+- **Licence:** [MIT](LICENSE). Talnaspor is free to use, modify and share.
 
 ## Development
 
