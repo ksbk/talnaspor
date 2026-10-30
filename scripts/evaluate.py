@@ -26,6 +26,9 @@ def check(item: dict[str, Any], body: dict[str, Any]) -> str:
 
     if item["expect"] == "clarification":
         return "PASS" if item["message"] in body["message"] else "FAIL"
+    if item["expect"] == "suggestions":
+        suggested = [table["api_url"] for table in body["tables"]]
+        return "PASS" if any(url.endswith("/" + item["table"]) for url in suggested) else "FAIL"
     if item["expect"] == "refusal":
         return "PASS" if item["detail"] in (body["detail"] or "") else "FAIL"
 
@@ -49,6 +52,8 @@ def shown(body: dict[str, Any]) -> str:
         return f"{comparison['start']['value_text']} → {comparison['end']['value_text']}"
     if body.get("answer"):
         return str(body["answer"]["value_text"])
+    if body.get("tables"):
+        return f"{len(body['tables'])} töflur, t.d. {body['tables'][0]['title']}"
     return str(body["message"])
 
 

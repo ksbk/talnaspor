@@ -22,9 +22,13 @@ class Interpretation:
 
 @dataclass(frozen=True)
 class Clarification:
-    """Why a question cannot be answered as asked, and what the user can ask instead."""
+    """Why a question cannot be answered as asked, and what the user can ask instead.
+
+    recognized is False when the question is not about a supported topic at all.
+    """
 
     message: str
+    recognized: bool = True
 
 
 SUPPORTED = (
@@ -119,7 +123,7 @@ def interpret(question: str) -> Interpretation | Clarification:
     if is_cpi and is_population:
         return Clarification(f"Spyrðu um eitt efni í einu. {SUPPORTED}")
     if not is_cpi and not is_population:
-        return Clarification(f"Ég skildi ekki spurninguna. {SUPPORTED}")
+        return Clarification(f"Ég skildi ekki spurninguna. {SUPPORTED}", recognized=False)
 
     text = TWELVE_MONTHS.sub("12 manada", text)
     last_year = bool(LAST_YEAR.search(text))

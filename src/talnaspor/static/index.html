@@ -104,7 +104,13 @@
     border: 1px solid var(--border);
     border-radius: 12px;
   }
-  .reply.clarification { background: var(--info-bg); border-color: var(--info-border); }
+  .reply.clarification, .reply.suggestions {
+    background: var(--info-bg);
+    border-color: var(--info-border);
+  }
+  .tables { margin: 0 0 10px; padding-left: 20px; }
+  .tables li { margin-bottom: 8px; }
+  .tables a { color: var(--accent); font-weight: 600; }
   .reply.refusal { background: var(--warn-bg); border-color: var(--warn-border); }
   .reply.error { background: var(--error-bg); border-color: var(--error-border); }
   .reply.loading { color: var(--muted); }
@@ -210,6 +216,25 @@
     );
   }
 
+  function renderSuggestions(reply, body) {
+    const list = element("ol", "tables");
+    for (const table of body.tables) {
+      const item = element("li");
+      const link = element("a", "", table.title);
+      link.href = table.page_url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      const updated = table.updated ? " · uppfært " + table.updated.slice(0, 10) : "";
+      item.append(link, element("div", "meta", table.folders.join(" › ") + updated));
+      list.append(item);
+    }
+    reply.append(
+      element("p", "sentence", body.message),
+      list,
+      element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"),
+    );
+  }
+
   function renderAnswer(reply, body) {
     const answer = body.answer;
     const labels = Object.values(answer.labels).filter((label) => label !== answer.period);
@@ -232,6 +257,10 @@
   function render(reply, body) {
     reply.className = "reply " + body.status;
     reply.textContent = "";
+    if (body.status === "suggestions") {
+      renderSuggestions(reply, body);
+      return;
+    }
     if (body.status === "answer") {
       if (body.comparison) renderComparison(reply, body);
       else renderAnswer(reply, body);

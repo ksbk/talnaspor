@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from talnaspor.catalog import search
 from talnaspor.interpret import Clarification, Interpretation, interpret
 
 QUESTIONS: list[dict[str, Any]] = json.loads(
@@ -20,6 +21,11 @@ def test_question_is_interpreted_as_recorded(item: dict[str, Any]) -> None:
     if item["expect"] == "clarification":
         assert isinstance(result, Clarification)
         assert item["message"] in result.message
+        return
+    if item["expect"] == "suggestions":
+        assert isinstance(result, Clarification)
+        assert not result.recognized
+        assert any(hit.api_url.endswith("/" + item["table"]) for hit in search(item["question"]))
         return
 
     expected = item["interpretation"]

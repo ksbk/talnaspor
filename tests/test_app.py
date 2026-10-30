@@ -74,6 +74,31 @@ def test_reports_upstream_failure() -> None:
     assert response.json()["answer"] is None
 
 
+def test_suggests_tables_for_unsupported_topics() -> None:
+    response = client.post("/ask", json={"question": "Hversu margir eru atvinnulausir?"})
+
+    body = response.json()
+    assert body["status"] == "suggestions"
+    assert "töflur Hagstofu" in body["message"]
+    assert any("Atvinnulausir" in table["title"] for table in body["tables"])
+    assert body["answer"] is None
+
+
+def test_keeps_clarification_when_no_table_matches() -> None:
+    response = client.post("/ask", json={"question": "Hvernig er veðrið?"})
+
+    assert response.json()["status"] == "clarification"
+    assert response.json()["tables"] is None
+
+
+def test_does_not_search_for_recognized_topics() -> None:
+    with patch("talnaspor.app.search") as search:
+        response = client.post("/ask", json={"question": "Verðbólga árið 2024"})
+
+    assert response.json()["status"] == "clarification"
+    search.assert_not_called()
+
+
 def test_rejects_empty_question() -> None:
     assert client.post("/ask", json={"question": ""}).status_code == 422
 

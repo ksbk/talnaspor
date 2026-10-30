@@ -10,11 +10,17 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from talnaspor.answer import Answer, Comparison, answer, compare
+from talnaspor.catalog import TableHit, search
 from talnaspor.interpret import Clarification, interpret
 
 app = FastAPI(title="Talnaspor")
 
 INDEX = Path(__file__).parent / "static" / "index.html"
+
+SUGGESTIONS = (
+    "Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands "
+    "fjalla líklega um efnið:"
+)
 
 
 class AskRequest(BaseModel):
@@ -22,7 +28,7 @@ class AskRequest(BaseModel):
 
 
 class AskResponse(BaseModel):
-    status: Literal["answer", "clarification", "refusal", "error"]
+    status: Literal["answer", "suggestions", "clarification", "refusal", "error"]
     question: str
     message: str
     table: str | None = None
@@ -30,6 +36,7 @@ class AskResponse(BaseModel):
     compare_from: str | None = None
     answer: Answer | None = None
     comparison: Comparison | None = None
+    tables: list[TableHit] | None = None
     detail: str | None = None
     elapsed_ms: int
 
@@ -53,6 +60,9 @@ def ask(request: AskRequest) -> AskResponse | JSONResponse:
 
     interpretation = interpret(request.question)
     if isinstance(interpretation, Clarification):
+        tables = [] if interpretation.recognized else search(request.question)
+        if tables:
+            return respond(status="suggestions", message=SUGGESTIONS, tables=tables)
         return respond(status="clarification", message=interpretation.message)
 
     context = {

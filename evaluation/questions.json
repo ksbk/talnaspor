@@ -1,6 +1,6 @@
 {
   "as_of": "2026-10-30",
-  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate.",
+  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate. Suggestions pass when the named table is among the tables suggested.",
   "questions": [
     {
       "id": "cpi-01",
@@ -519,6 +519,48 @@
       "values": [
         389444
       ]
+    },
+    {
+      "id": "find-01",
+      "question": "Hversu margir eru atvinnulausir á Íslandi?",
+      "expect": "suggestions",
+      "table": "VIN01206.px"
+    },
+    {
+      "id": "find-02",
+      "question": "What is the unemployment rate?",
+      "expect": "suggestions",
+      "table": "VIN01002.px"
+    },
+    {
+      "id": "find-03",
+      "question": "Hver er munurinn á launum karla og kvenna?",
+      "expect": "suggestions",
+      "table": "VIN02010.px"
+    },
+    {
+      "id": "find-04",
+      "question": "How many tourists visit Iceland?",
+      "expect": "suggestions",
+      "table": "SAM08005.px"
+    },
+    {
+      "id": "find-05",
+      "question": "Hver er landsframleiðslan?",
+      "expect": "suggestions",
+      "table": "THJ01102.px"
+    },
+    {
+      "id": "find-06",
+      "question": "Hver er kosningaþátttaka?",
+      "expect": "suggestions",
+      "table": "KOS02101.px"
+    },
+    {
+      "id": "find-07",
+      "question": "Hvað eru margir bílar á Íslandi?",
+      "expect": "suggestions",
+      "table": "SAM03105.px"
     },
     {
       "id": "clar-01",
