@@ -8,6 +8,15 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 
 
+class MissingValue(ValueError):
+    """A cell the table has no value for; status is Statistics Iceland's marker, such as ".."."""
+
+    def __init__(self, cell: dict[str, str], status: str | None) -> None:
+        super().__init__(f"Missing value for {cell} (status {status!r})")
+        self.cell = cell
+        self.status = status
+
+
 class _Category(BaseModel):
     index: dict[str, int] | list[str]
     label: dict[str, str] = Field(default_factory=dict)
@@ -105,7 +114,7 @@ def decode_jsonstat(text: str, query: Mapping[str, object]) -> StatData:
         status = _status(dataset.status, flat_index)
 
         if value is None:
-            raise ValueError(f"Missing value for {cell} (status {status!r})")
+            raise MissingValue(cell, status)
         if not math.isfinite(value):
             raise ValueError(f"Non-finite value for {cell}")
 

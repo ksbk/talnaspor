@@ -215,7 +215,7 @@ def test_interprets_last_year_and_wording(question: str, expected: Interpretatio
     ("question", "message"),
     [
         ("What was inflation last year?", "Tilgreindu mánuð"),
-        ("Hvernig hefur mannfjöldinn breyst síðustu fimm ár?", "afstæð tímabil"),
+        ("Hver var mannfjöldinn fyrir tíu árum?", "afstæð tímabil"),
         ("What was the population 10 years ago?", "afstæð tímabil"),
         ("Hver var verðbólgan í síðasta mánuði?", "afstæð tímabil"),
     ],
@@ -239,7 +239,8 @@ def test_never_ignores_relative_periods(question: str, message: str) -> None:
         "Verðbólga í janúar 2024, 2025 og 2026",
         "Hver var breytingin á vísitölu neysluverðs í september 2026?",
         "What was inflation last year?",
-        "Hvernig hefur mannfjöldinn breyst síðustu fimm ár?",
+        "Hver var mannfjöldinn fyrir tíu árum?",
+        "Population over the last 3 months",
     ],
 )
 def test_every_clarification_has_english_wording(question: str) -> None:
@@ -250,3 +251,43 @@ def test_every_clarification_has_english_wording(question: str) -> None:
     assert result.text("en") == result.message_en
     assert result.message_en and result.message_en != result.message
     assert not set("áðéíóúýþæö") & set(result.message_en.lower())
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        (
+            "Hvernig hefur verðbólgan þróast síðustu tíu árin?",
+            Interpretation(
+                "cpi",
+                {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"},
+                before_latest(120),
+            ),
+        ),
+        (
+            "Inflation over the past 6 months",
+            Interpretation(
+                "cpi",
+                {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"},
+                before_latest(6),
+            ),
+        ),
+        (
+            "How has the population changed over the last five years?",
+            Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(5)),
+        ),
+        (
+            "Mannfjöldi síðustu 20 ár",
+            Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(20)),
+        ),
+    ],
+)
+def test_compares_over_relative_spans(question: str, expected: Interpretation) -> None:
+    assert interpret(question) == expected
+
+
+def test_keeps_years_outside_the_usual_range() -> None:
+    # Ignoring such a year would answer for the latest period instead.
+    assert interpret("What was the population in 1650?") == Interpretation(
+        "population", {"Ár": "1650", "Eining": "0"}
+    )

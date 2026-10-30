@@ -2,6 +2,7 @@ import pytest
 
 from talnaspor.pxweb import PXMetadata
 from talnaspor.query import build_query
+from talnaspor.validation import UnavailableValue
 
 
 @pytest.fixture
@@ -129,3 +130,11 @@ def test_rejects_empty_or_repeated_values(metadata: PXMetadata, months: list[str
 def test_rejects_any_invalid_value_in_a_list(metadata: PXMetadata) -> None:
     with pytest.raises(ValueError, match="Unsupported value"):
         build_query(metadata, {"Month": ["2026M09", "2027M01"], "Index": "CPI", "Item": "index"})
+
+
+def test_reports_the_range_a_table_covers(metadata: PXMetadata) -> None:
+    with pytest.raises(UnavailableValue) as raised:
+        build_query(metadata, {"Month": "2030M01", "Index": "CPI", "Item": "index"})
+
+    assert (raised.value.requested, raised.value.dimension) == ("2030M01", "Month")
+    assert (raised.value.first, raised.value.last) == ("2026M08", "2026M09")

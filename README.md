@@ -66,7 +66,8 @@ clarifications and the interface follow the **ÍS / EN** switch.
 - **Population measures:** population on 1 January, growth (number and %), net
   migration and natural increase.
 - **Periods:** a named month or year, the latest published period when none is given,
-  "last year" for population, or two periods to compare.
+  "last year" for population, two periods to compare, or a span back from the latest
+  period ("síðustu tíu árin", "the last 6 months").
 - **Comparisons:** a change in a percentage is reported in percentage points. Levels such
   as population also get the relative change.
 
@@ -130,7 +131,7 @@ anyone can check the answer at the source.
 | `answer` | A verified figure in `answer` (`kind` is `curated` or `catalog`), or a change between two periods in `comparison` | 200 |
 | `suggestions` | No direct answer; the best-matching official tables are in `tables`, and `message` names any choice needed | 200 |
 | `clarification` | The question needs more detail; `message` says what | 200 |
-| `refusal` | The figure could not be verified, such as unpublished data; the reason is in `detail` | 200 |
+| `refusal` | No verified figure: `reason` is `unavailable` (outside the table's range, which `message` states), `unpublished` (marked `..`) or `unverified`; technical detail is in `detail` | 200 |
 | `error` | Statistics Iceland could not be reached | 502 |
 
 ```sh
@@ -152,7 +153,7 @@ Interactive API documentation is at <http://127.0.0.1:8000/docs>.
 
 ## Evaluation
 
-[evaluation/questions.json](evaluation/questions.json) holds 57 realistic questions, 10 of
+[evaluation/questions.json](evaluation/questions.json) holds 62 realistic questions, 12 of
 them answered in English. Each
 expected figure was fetched by
 [scripts/fetch_expected.py](scripts/fetch_expected.py), which shares no code with
@@ -163,9 +164,10 @@ format.
 make evaluate    # Ask every question live and write evaluation/results.md
 ```
 
-Latest run: **54 pass, 3 documented limitations, 0 failures**. This includes 8 answers
-from catalog tables, each checked for the table, period, every selected value and the
-figure, and 3 questions where the expected table must be among those suggested. See
+Latest run: **60 pass, 2 documented limitations, 0 failures**. This includes 14 answers
+from catalog tables, each checked for the table, period and figure (and, in Icelandic,
+every selected value), 4 refusals, and 3 questions where the expected table must be
+among those suggested. See
 [evaluation/results.md](evaluation/results.md). Every question's interpretation is also
 checked offline by `make check`.
 
@@ -182,8 +184,8 @@ checked offline by `make check`.
   words, and they reflect the catalog as of its last crawl, which
   `scripts/build_catalog.py` refreshes.
 - **Keyword rules.** Unusual phrasing gets a clarification rather than an answer.
-- **Relative periods.** "Last year" works for population. Others, such as
-  "síðustu fimm ár" or "last month", get a clarification instead of an answer.
+- **Relative periods.** "Last year" (population) and spans such as "síðustu fimm ár"
+  work. "Last month" and "ten years ago" get a clarification instead of an answer.
 - **Two periods at most.** There are no time series or charts.
 - **English depends on Statistics Iceland's English tables.** Catalog answers from a table
   without an English version keep its Icelandic labels and say so. In English table

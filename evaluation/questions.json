@@ -665,6 +665,23 @@
       ]
     },
     {
+      "id": "cat-09",
+      "question": "Hversu margir voru atvinnulausir í september 2025?",
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/1_manadartolur/VIN00001.px",
+      "period": "2025M09",
+      "labels": {
+        "Kyn/aldur": "Alls",
+        "Eining": "Atvinnulausir"
+      },
+      "values": [
+        7500
+      ],
+      "periods": [
+        "2025M09"
+      ]
+    },
+    {
       "id": "find-04",
       "question": "How many tourists visit Iceland?",
       "expect": "suggestions",
@@ -902,11 +919,93 @@
       "message": "one topic at a time"
     },
     {
-      "id": "lim-01",
+      "id": "pop-14",
       "question": "Hvernig hefur mannfjöldinn breyst síðustu fimm ár?",
-      "expect": "clarification",
-      "message": "afstæð tímabil",
-      "limitation": "Relative periods other than \"last year\", such as \"síðustu fimm ár\", get a clarification instead of an answer."
+      "expect": "comparison",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "latest",
+          "Eining": "0"
+        },
+        "compare_from": "latest-5"
+      },
+      "periods": [
+        "2021",
+        "2026"
+      ],
+      "values": [
+        358298,
+        394324
+      ]
+    },
+    {
+      "id": "cpi-15",
+      "question": "Hvernig hefur verðbólgan þróast síðustu tíu árin?",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "latest",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        },
+        "compare_from": "latest-120"
+      },
+      "periods": [
+        "2016M10",
+        "2026M10"
+      ],
+      "values": [
+        1.8,
+        5.9
+      ]
+    },
+    {
+      "id": "ref-03",
+      "question": "Hver var mannfjöldinn árið 1650?",
+      "expect": "refusal",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "1650",
+          "Eining": "0"
+        }
+      },
+      "detail": "Unsupported value"
+    },
+    {
+      "id": "en-11",
+      "lang": "en",
+      "question": "How many people were unemployed in March 2025?",
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/1_manadartolur/VIN00001.px",
+      "period": "2025M03",
+      "labels": {
+        "Kyn/aldur": "Alls",
+        "Eining": "Atvinnulausir"
+      },
+      "values": [
+        8500
+      ],
+      "periods": [
+        "2025M03"
+      ]
+    },
+    {
+      "id": "en-12",
+      "lang": "en",
+      "question": "What was inflation in January 2030?",
+      "expect": "refusal",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2030M01",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "detail": "Unsupported value"
     },
     {
       "id": "lim-02",

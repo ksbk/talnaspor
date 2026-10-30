@@ -300,3 +300,36 @@ def test_answers_with_icelandic_labels_when_a_table_has_no_english_version() -> 
     assert result.labels["Kyn"] == "Konur"
     assert result.text.endswith("(Labels are in Icelandic: this table has no English version.)")
     assert result.page_url == hit().page_url
+
+
+def monthly_metadata() -> PXMetadata:
+    return PXMetadata.model_validate(
+        {
+            "title": "Atvinnulausir 2003-2026",
+            "variables": [
+                {
+                    "code": "Mánuður",
+                    "text": "Mánuður",
+                    "values": ["2025M08", "2025M09", "2025M10"],
+                    "time": True,
+                },
+                {"code": "Eining", "text": "Eining", "values": ["0"], "valueTexts": ["Fjöldi"]},
+            ],
+        }
+    )
+
+
+def test_selects_exactly_the_month_asked_for() -> None:
+    selections, _ = select(monthly_metadata(), {}, None, None, "2025M09")
+
+    assert selections == {"Mánuður": "2025M09", "Eining": "0"}
+
+
+def test_does_not_answer_a_month_from_a_table_without_it() -> None:
+    assert select(monthly_metadata(), {}, None, None, "2025M12") == (None, None)
+    # An annual table cannot answer for a month either.
+    assert select(metadata(), {"atvinnuleysi": 1.0}, None, None, "2025M03") == (None, None)
+
+
+def test_skips_annual_tables_for_a_question_about_a_month() -> None:
+    assert run("Atvinnuleysi í mars 2025", "{}") == (None, 0)

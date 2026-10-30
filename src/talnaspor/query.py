@@ -28,7 +28,10 @@ def build_query(
         if not requested or len(set(requested)) != len(requested):
             raise ValueError(f"Selection for {variable.code} must list distinct values")
 
-        values = [validate_value(value, variable.values) for value in requested]
+        values = [
+            validate_value(value, variable.values, variable.text, variable.valueTexts)
+            for value in requested
+        ]
 
         query.append(
             {

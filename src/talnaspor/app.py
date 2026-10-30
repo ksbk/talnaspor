@@ -9,10 +9,12 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from talnaspor.answer import Answer, Comparison, Lang, answer, compare
+from talnaspor.answer import Answer, Comparison, Lang, answer, compare, format_period
 from talnaspor.catalog import TableHit, search, topic_word
 from talnaspor.interpret import Clarification, interpret
+from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import Choice, plan_answer
+from talnaspor.validation import UnavailableValue
 
 app = FastAPI(title="Talnaspor")
 
@@ -25,7 +27,13 @@ MESSAGES: dict[str, dict[str, str]] = {
             "fjalla líklega um efnið:"
         ),
         "error": "Ekki náðist samband við Hagstofu Íslands. Reyndu aftur síðar.",
-        "refusal": ("Ekki tókst að svara spurningunni með staðfestum gögnum frá Hagstofu Íslands."),
+        "refusal": "Ekki tókst að svara spurningunni með staðfestum gögnum frá Hagstofu Íslands.",
+        "unavailable": (
+            "Engin tala er til fyrir {requested} í töflu Hagstofu Íslands. "
+            "Taflan nær frá {first} til {last}."
+        ),
+        "unpublished": "Hagstofa Íslands hefur ekki birt þessa tölu (merkt „..“ í töflunni).",
+        "missing": "Þessi tala er ekki tiltæk í töflu Hagstofu Íslands.",
     },
     "en": {
         "suggestions": (
@@ -33,7 +41,14 @@ MESSAGES: dict[str, dict[str, str]] = {
             "probably cover it:"
         ),
         "error": "Statistics Iceland could not be reached. Please try again later.",
-        "refusal": ("I could not answer this question with verified data from Statistics Iceland."),
+        "refusal": "I could not answer this question with verified data from Statistics Iceland.",
+        "unavailable": (
+            "Statistics Iceland's table has no figure for {requested}. It covers {first} to {last}."
+        ),
+        "unpublished": (
+            "Statistics Iceland has not published this figure (marked “..” in the table)."
+        ),
+        "missing": "This figure is not available in Statistics Iceland's table.",
     },
 }
 
@@ -64,6 +79,9 @@ class AskResponse(BaseModel):
     answer: Answer | None = None
     comparison: Comparison | None = None
     tables: list[TableHit] | None = None
+    # Why a refusal happened: the period or category is outside the table, the figure
+    # is not published, or the data could not be verified for another reason.
+    reason: Literal["unavailable", "unpublished", "unverified"] | None = None
     detail: str | None = None
     elapsed_ms: int
 
@@ -173,9 +191,24 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
             detail=str(error),
             **context,
         )
+    except UnavailableValue as error:
+        message = messages["unavailable"].format(
+            requested=format_period(error.requested, lang),
+            first=format_period(error.first, lang),
+            last=format_period(error.last, lang),
+        )
+        return respond(
+            status="refusal", reason="unavailable", message=message, detail=str(error), **context
+        )
+    except MissingValue as error:
+        message = messages["unpublished" if error.status == ".." else "missing"]
+        return respond(
+            status="refusal", reason="unpublished", message=message, detail=str(error), **context
+        )
     except ValueError as error:
         return respond(
             status="refusal",
+            reason="unverified",
             message=messages["refusal"],
             detail=str(error),
             **context,

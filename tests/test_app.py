@@ -7,8 +7,10 @@ from fastapi.testclient import TestClient
 
 from talnaspor.answer import LATEST, Answer
 from talnaspor.app import app
+from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import Choice
 from talnaspor.pxweb import PXMetadata
+from talnaspor.validation import UnavailableValue
 
 client = TestClient(app)
 
@@ -233,3 +235,32 @@ def test_serves_both_languages_in_the_page() -> None:
 
     assert 'data-lang="is"' in page and 'data-lang="en"' in page
     assert "JSON.stringify({ question, lang })" in page
+
+
+def test_explains_a_period_outside_the_table() -> None:
+    error = UnavailableValue("2030M01", "Mánuður", "1988M05", "2026M10")
+    with patch("talnaspor.app.answer", side_effect=error):
+        icelandic = client.post("/ask", json={"question": "Verðbólga í janúar 2030"}).json()
+        english = client.post(
+            "/ask", json={"question": "Verðbólga í janúar 2030", "lang": "en"}
+        ).json()
+
+    assert icelandic["reason"] == "unavailable"
+    assert icelandic["message"] == (
+        "Engin tala er til fyrir janúar 2030 í töflu Hagstofu Íslands. "
+        "Taflan nær frá maí 1988 til október 2026."
+    )
+    assert english["message"] == (
+        "Statistics Iceland's table has no figure for January 2030. "
+        "It covers May 1988 to October 2026."
+    )
+
+
+def test_explains_an_unpublished_figure() -> None:
+    error = MissingValue({"Ár": "2026", "Eining": "2"}, "..")
+    with patch("talnaspor.app.answer", side_effect=error):
+        body = client.post("/ask", json={"question": "Hver var fjölgun íbúa árið 2026?"}).json()
+
+    assert body["status"] == "refusal"
+    assert body["reason"] == "unpublished"
+    assert body["message"].startswith("Hagstofa Íslands hefur ekki birt þessa tölu")

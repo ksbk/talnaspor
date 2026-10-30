@@ -32,7 +32,7 @@ from talnaspor.catalog import (
     question_words,
     related_phrases,
 )
-from talnaspor.interpret import normalize
+from talnaspor.interpret import MONTH_WORDS, Clarification, month_periods, normalize
 from talnaspor.jsonstat import decode_jsonstat
 from talnaspor.pxweb import PXMetadata, PXVariable, get_data, get_metadata, get_units
 from talnaspor.query import build_query
@@ -54,7 +54,7 @@ TOTALS = frozenset(
         "whole country",
     }
 )
-YEAR = re.compile(r"\b(1[7-9]\d{2}|20\d{2})\b")
+YEAR = re.compile(r"\b([12]\d{3})\b")
 
 # Words too common to find tables by, but which name categories such as "Fjöldi".
 CATEGORY_WORDS = frozenset({"fjoldi"})
@@ -130,13 +130,19 @@ def plan_answer(
     answer, if there is one, or None.
     """
     choice: Choice | None = None
-    years = sorted(set(YEAR.findall(normalize(question))))
-    if len(years) > 1:
+    text = normalize(question)
+    years = sorted(set(YEAR.findall(text)))
+    # Only a question that names a month needs a monthly period; a year alone is fine.
+    names_month = any(re.search(rf"\b{word}\b", text) for word in MONTH_WORDS)
+    months = month_periods(text) if names_month else []
+    if len(years) > 1 or isinstance(months, Clarification) or len(months) > 1:
         return None
+    # A named month ("september 2025") must be matched exactly, by a monthly table.
+    period = months[0] if months else None
     year = years[0] if years else None
     oldest = None if year else str((today or date.today()).year - RECENT_YEARS)
 
-    words = question_words(question, keep=CATEGORY_WORDS)
+    words = question_words(question, keep=CATEGORY_WORDS) - MONTH_WORDS
     # Numbers other than the year can name categories such as "16-74 ára".
     numbers = set(re.findall(r"\d+", normalize(question))) - set(years)
     phrases = related_phrases(question)
@@ -160,7 +166,7 @@ def plan_answer(
             # A series that has stopped cannot answer a question about the present.
             if oldest and max(_texts(time_variable))[:4] < oldest:
                 continue
-            selections, unsettled = select(metadata, weights, year, translated)
+            selections, unsettled = select(metadata, weights, year, translated, period)
             if selections is None:
                 if choice is None and unsettled and len(unsettled) == 1:
                     choice = _choice(metadata, unsettled[0], hit, english, translated)
@@ -229,6 +235,7 @@ def select(
     weights: dict[str, float],
     year: str | None,
     translated: dict[str, PXVariable] | None = None,
+    period: str | None = None,
 ) -> tuple[dict[str, str] | None, list[PXVariable] | None]:
     """Settle every dimension of a table for a question.
 
@@ -242,7 +249,7 @@ def select(
     periods = [
         (text, code)
         for code, text in zip(time_variable.values, _texts(time_variable), strict=True)
-        if year is None or text.startswith(year)
+        if (text == period if period else (year is None or text.startswith(year)))
     ]
     if not periods:
         return None, None

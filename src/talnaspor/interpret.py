@@ -106,7 +106,24 @@ CHANGE = re.compile(
 )
 
 # The start of a span, as in "frá 2015" or "since 2000", which runs to the latest period.
-SINCE = re.compile(r"\b(since|(fra|sidan)\s+(\w+\s+)?(1[7-9]|20)\d{2})")
+SINCE = re.compile(r"\b(since|(fra|sidan)\s+(\w+\s+)?[12]\d{3})")
+
+# Any four-digit year from 1000 to 2999, so that a year outside a table's range is
+# reported as unavailable rather than silently ignored.
+YEAR = r"\b([12]\d{3})\b"
+
+NUMBERS = {
+    "eitt": 1, "einn": 1, "eins": 1, "tvo": 2, "tveggja": 2, "thrju": 3, "thriggja": 3,
+    "fjogur": 4, "fjogurra": 4, "fimm": 5, "sex": 6, "sjo": 7, "atta": 8, "niu": 9,
+    "tiu": 10, "tuttugu": 20, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "twenty": 20,
+}  # fmt: skip
+
+# A span back from the latest period, as in "síðustu tíu árin" or "the last 5 years".
+SPAN = re.compile(
+    rf"\b(?:sidustu|last|past)\s+(\d{{1,2}}|{'|'.join(NUMBERS)})\s+"
+    r"(ar|arin|arum|years?|manudi|manudina|manuda|months?)\b"
+)
 
 # "The last 12 months" describes annual change, not a relative period.
 TWELVE_MONTHS = re.compile(r"\b(sidustu|last|past) 12 (manada|manudi|months)\b")
@@ -144,11 +161,18 @@ def interpret(question: str) -> Interpretation | Clarification:
 
     text = TWELVE_MONTHS.sub("12 manada", text)
     last_year = bool(LAST_YEAR.search(text))
+    span = SPAN.search(text)
+    months_back = None
+    if span:
+        count = int(span[1]) if span[1].isdigit() else NUMBERS[span[1]]
+        in_months = span[2].startswith(("man", "month"))
+        months_back = count if in_months else 12 * count
+        text = text[: span.start()] + text[span.end() :]
     if RELATIVE.search(LAST_YEAR.sub("", text)):
         return Clarification(
-            "Ég get ekki enn svarað um afstæð tímabil eins og „síðustu fimm ár“. "
+            "Ég get ekki enn svarað um afstæð tímabil eins og „í síðasta mánuði“. "
             "Tilgreindu tímabil, til dæmis „september 2026“ eða „2020 og 2025“.",
-            "I cannot yet answer about relative periods such as “the last five years”. "
+            "I cannot yet answer about relative periods such as “last month”. "
             "Please name the period, for example “September 2026” or “2020 and 2025”.",
         )
 
@@ -160,11 +184,19 @@ def interpret(question: str) -> Interpretation | Clarification:
                 "Inflation is published by month. Please name a month, "
                 "for example “inflation in December 2025”.",
             )
-        return _interpret_cpi(text)
-    return _interpret_population(text, last_year)
+        return _interpret_cpi(text, months_back)
+    if months_back is not None and months_back % 12:
+        return Clarification(
+            "Mannfjöldi er birtur eftir árum. Tilgreindu fjölda ára, til dæmis „síðustu fimm ár“.",
+            "Population is published by year. Please give a number of years, for example "
+            "“the last five years”.",
+        )
+    return _interpret_population(
+        text, last_year, None if months_back is None else months_back // 12
+    )
 
 
-def _interpret_cpi(text: str) -> Interpretation | Clarification:
+def _interpret_cpi(text: str, months_back: int | None = None) -> Interpretation | Clarification:
     periods = _months(text)
     if isinstance(periods, Clarification):
         return periods
@@ -178,7 +210,7 @@ def _interpret_cpi(text: str) -> Interpretation | Clarification:
     else:
         measure = "index"
 
-    spans = _spans(text, periods)
+    spans = _spans(text, periods) or (months_back is not None and not periods)
     if CHANGE.search(text) and not spans and measure == "index":
         return Clarification(
             "Viltu mánaðarbreytingu eða ársbreytingu? Til dæmis "
@@ -189,10 +221,12 @@ def _interpret_cpi(text: str) -> Interpretation | Clarification:
 
     housing = _has_any(text, ("an husnaedis", "excluding housing", "without housing"))
     selections = {"Vísitala": "CPILH" if housing else "CPI", "Liður": measure}
-    return _with_periods("cpi", "Mánuður", selections, periods, spans, 12)
+    return _with_periods("cpi", "Mánuður", selections, periods, spans, months_back or 12)
 
 
-def _interpret_population(text: str, last_year: bool) -> Interpretation | Clarification:
+def _interpret_population(
+    text: str, last_year: bool, years_back: int | None = None
+) -> Interpretation | Clarification:
     years = _years(text)
     if last_year and not years:
         # The latest population figure is for 1 January of the current year.
@@ -202,7 +236,7 @@ def _interpret_population(text: str, last_year: bool) -> Interpretation | Clarif
             "Ég get borið saman tvö ár í einu.", "I can compare two years at a time."
         )
 
-    spans = _spans(text, years)
+    spans = _spans(text, years) or (years_back is not None and not years)
     grows = _has_any(text, ("fjolg", "growth", "increase", "grew")) or bool(CHANGE.search(text))
 
     if _has_any(text, ("adflutt", "brottflutt", "migration")):
@@ -216,7 +250,7 @@ def _interpret_population(text: str, last_year: bool) -> Interpretation | Clarif
         # Growth over a span of years is the change in the population itself.
         measure = "0"
 
-    return _with_periods("population", "Ár", {"Eining": measure}, years, spans, 10)
+    return _with_periods("population", "Ár", {"Eining": measure}, years, spans, years_back or 10)
 
 
 def _spans(text: str, periods: list[str]) -> bool:
@@ -251,6 +285,15 @@ def _with_periods(
     return Interpretation(table, {time_code: periods[0] if periods else LATEST, **selections})
 
 
+# Month names as plain words; the English "may" pattern needs a following year.
+MONTH_WORDS = frozenset(word for word in MONTHS if word.isalpha())
+
+
+def month_periods(text: str) -> list[str] | Clarification:
+    """Month periods (2026M09) named in normalized text, or what is missing to name one."""
+    return _months(text)
+
+
 def _months(text: str) -> list[str] | Clarification:
     """Find month periods, pairing each month with the year that follows it."""
     months = sorted(
@@ -258,7 +301,7 @@ def _months(text: str) -> list[str] | Clarification:
         for word, number in MONTHS.items()
         for match in re.finditer(rf"\b{word}\b", text)
     )
-    years = [(match.start(), match[1]) for match in re.finditer(r"\b(1[7-9]\d{2}|20\d{2})\b", text)]
+    years = [(match.start(), match[1]) for match in re.finditer(YEAR, text)]
 
     if not months and not years:
         return []
@@ -299,4 +342,4 @@ def _has_any(text: str, words: tuple[str, ...]) -> bool:
 
 
 def _years(text: str) -> list[str]:
-    return sorted(set(re.findall(r"\b(1[7-9]\d{2}|20\d{2})\b", text)))
+    return sorted(set(re.findall(YEAR, text)))
