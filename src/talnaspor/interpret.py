@@ -67,6 +67,8 @@ POPULATION_WORDS = (
     "bua a islandi",
     "bua margir",
     "margir bua",
+    "ibuum",
+    "ibui",
     "adfluttir umfram",
     "net migration",
     "faeddir umfram",
@@ -77,9 +79,11 @@ POPULATION_WORDS = (
 # Word starts only, so that "arsbreyting" (annual change) is not a change-over-time question.
 CHANGE = re.compile(
     r"\b(breyst|breyttist|breyting|thro(un|a)|aukist|haekkad|laekkad|vaxid|samanburd"
-    r"|change|trend|compare|comparison|grown|since"
-    r"|(fra|sidan)\s+(\w+\s+)?(1[7-9]|20)\d{2})"
+    r"|change|trend|compare|comparison|grown)"
 )
+
+# The start of a span, as in "frá 2015" or "since 2000", which runs to the latest period.
+SINCE = re.compile(r"\b(since|(fra|sidan)\s+(\w+\s+)?(1[7-9]|20)\d{2})")
 
 
 def normalize(text: str) -> str:
@@ -116,9 +120,16 @@ def _interpret_cpi(text: str) -> Interpretation | Clarification:
     else:
         measure = "index"
 
+    spans = _spans(text, periods)
+    if CHANGE.search(text) and not spans and measure == "index":
+        return Clarification(
+            "Viltu mánaðarbreytingu eða ársbreytingu? Til dæmis "
+            "„mánaðarbreyting vísitölu neysluverðs í september 2026“."
+        )
+
     housing = _has_any(text, ("an husnaedis", "excluding housing", "without housing"))
     selections = {"Vísitala": "CPILH" if housing else "CPI", "Liður": measure}
-    return _with_periods("cpi", "Mánuður", selections, periods, bool(CHANGE.search(text)), 12)
+    return _with_periods("cpi", "Mánuður", selections, periods, spans, 12)
 
 
 def _interpret_population(text: str) -> Interpretation | Clarification:
@@ -126,19 +137,32 @@ def _interpret_population(text: str) -> Interpretation | Clarification:
     if len(years) > 2:
         return Clarification("Ég get borið saman tvö ár í einu.")
 
-    compares = bool(CHANGE.search(text)) or len(years) == 2
+    spans = _spans(text, years)
+    grows = _has_any(text, ("fjolg", "growth", "increase", "grew")) or bool(CHANGE.search(text))
 
     if _has_any(text, ("adflutt", "brottflutt", "migration")):
         measure = "3"
     elif _has_any(text, ("faeddir umfram", "natural increase")):
         measure = "4"
-    elif _has_any(text, ("fjolgun", "growth", "increase", "grew")) and not compares:
+    elif grows and not spans:
+        # Growth or change within one year is that year's increase.
         measure = "1" if _has_any(text, ("%", "hlutfall", "prosent", "percent", "rate")) else "2"
     else:
         # Growth over a span of years is the change in the population itself.
         measure = "0"
 
-    return _with_periods("population", "Ár", {"Eining": measure}, years, compares, 10)
+    return _with_periods("population", "Ár", {"Eining": measure}, years, spans, 10)
+
+
+def _spans(text: str, periods: list[str]) -> bool:
+    """Whether a question asks about change across a span rather than within one period.
+
+    Two periods, "since"/"frá" a period, or a change word with no period all span time;
+    a change word with one period ("the change in September 2026") does not.
+    """
+    if len(periods) == 2 or SINCE.search(text):
+        return True
+    return bool(CHANGE.search(text)) and not periods
 
 
 def _with_periods(
@@ -146,7 +170,7 @@ def _with_periods(
     time_code: str,
     selections: dict[str, str],
     periods: list[str],
-    compares: bool,
+    spans: bool,
     default_span: int,
 ) -> Interpretation:
     """Complete selections with one period, or a comparison between two.
@@ -156,7 +180,7 @@ def _with_periods(
     """
     if len(periods) == 2:
         return Interpretation(table, {time_code: periods[1], **selections}, periods[0])
-    if compares:
+    if spans:
         start = periods[0] if periods else before_latest(default_span)
         return Interpretation(table, {time_code: LATEST, **selections}, start)
     return Interpretation(table, {time_code: periods[0] if periods else LATEST, **selections})

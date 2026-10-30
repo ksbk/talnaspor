@@ -133,3 +133,50 @@ def test_annual_change_is_not_a_comparison() -> None:
 
     assert isinstance(result, Interpretation)
     assert result.compare_from is None
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        (
+            "What was the monthly change in the CPI in September 2026?",
+            Interpretation("cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_M"}),
+        ),
+        (
+            "What was the annual change in CPI in September 2026?",
+            Interpretation("cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_A"}),
+        ),
+        (
+            "Population change in 2024",
+            Interpretation("population", {"Ár": "2024", "Eining": "2"}),
+        ),
+        (
+            "Verðbólga frá janúar 2025",
+            Interpretation(
+                "cpi", {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"}, "2025M01"
+            ),
+        ),
+    ],
+)
+def test_change_within_one_period_is_not_a_comparison(
+    question: str, expected: Interpretation
+) -> None:
+    assert interpret(question) == expected
+
+
+def test_asks_which_change_for_cpi_in_one_month() -> None:
+    result = interpret("Hver var breytingin á vísitölu neysluverðs í september 2026?")
+
+    assert isinstance(result, Clarification)
+    assert "mánaðarbreytingu eða ársbreytingu" in result.message
+
+
+@pytest.mark.parametrize(
+    ("question", "selections"),
+    [
+        ("Hvað fjölgaði íbúum mikið árið 2024?", {"Ár": "2024", "Eining": "2"}),
+        ("Hver var fjöldi íbúa á Íslandi 2020?", {"Ár": "2020", "Eining": "0"}),
+    ],
+)
+def test_recognizes_inflected_population_words(question: str, selections: dict[str, str]) -> None:
+    assert interpret(question) == Interpretation("population", selections)
