@@ -2,6 +2,7 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 from pydantic import ValidationError
 
 from talnaspor.pxweb import PXMetadata, get_data, get_metadata
@@ -105,3 +106,25 @@ def test_get_data_submits_query() -> None:
         headers={"Content-Type": "application/json"},
         timeout=20,
     )
+
+
+def test_get_metadata_propagates_http_error() -> None:
+    fake_response = Mock()
+    fake_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+
+    with (
+        patch("talnaspor.pxweb.requests.get", return_value=fake_response),
+        pytest.raises(requests.HTTPError, match="404"),
+    ):
+        get_metadata("https://example.org/table.px")
+
+
+def test_get_data_propagates_http_error() -> None:
+    fake_response = Mock()
+    fake_response.raise_for_status.side_effect = requests.HTTPError("400 Bad Request")
+
+    with (
+        patch("talnaspor.pxweb.requests.post", return_value=fake_response),
+        pytest.raises(requests.HTTPError, match="400"),
+    ):
+        get_data("https://example.org/table.px", {"query": []})

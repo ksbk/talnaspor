@@ -57,6 +57,20 @@ def test_builds_valid_cpi_query(metadata: PXMetadata) -> None:
     ]
 
 
+def test_orders_dimensions_by_metadata(metadata: PXMetadata) -> None:
+    result = build_query(
+        metadata,
+        {
+            "Item": "change_A",
+            "Month": "2026M09",
+            "Index": "CPI",
+        },
+    )
+
+    assert isinstance(result["query"], list)
+    assert [entry["code"] for entry in result["query"]] == ["Month", "Index", "Item"]
+
+
 def test_rejects_missing_dimension(metadata: PXMetadata) -> None:
     with pytest.raises(ValueError, match="every table dimension"):
         build_query(
