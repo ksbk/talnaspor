@@ -1,5 +1,7 @@
 """HTTP access to Statistics Iceland's PX-Web API."""
 
+import json
+
 import requests
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -30,3 +32,18 @@ def get_metadata(table_url: str) -> PXMetadata:
     response.raise_for_status()
 
     return PXMetadata.model_validate_json(response.text)
+
+
+def get_data(
+    table_url: str,
+    query: dict[str, object],
+) -> str:
+    """Submit a PX-Web query and return the JSON response text."""
+    response = requests.post(
+        table_url,
+        data=json.dumps(query),
+        headers={"Content-Type": "application/json"},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.text

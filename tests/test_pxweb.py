@@ -1,9 +1,10 @@
+import json
 from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import ValidationError
 
-from talnaspor.pxweb import get_metadata
+from talnaspor.pxweb import get_data, get_metadata
 
 
 def test_get_metadata_returns_validated_model() -> None:
@@ -45,3 +46,25 @@ def test_get_metadata_rejects_invalid_structure() -> None:
         pytest.raises(ValidationError),
     ):
         get_metadata("https://example.org/table.px")
+
+
+def test_get_data_submits_query() -> None:
+    fake_response = Mock()
+    fake_response.text = '{"value":[5.9]}'
+
+    query: dict[str, object] = {
+        "query": [],
+        "response": {"format": "json-stat2"},
+    }
+
+    with patch("talnaspor.pxweb.requests.post", return_value=fake_response) as mock_post:
+        result = get_data("https://example.org/table.px", query)
+
+    assert result == '{"value":[5.9]}'
+    fake_response.raise_for_status.assert_called_once_with()
+    mock_post.assert_called_once_with(
+        "https://example.org/table.px",
+        data=json.dumps(query),
+        headers={"Content-Type": "application/json"},
+        timeout=20,
+    )
