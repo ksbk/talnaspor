@@ -1,23 +1,148 @@
 # Talnaspor
 
-Auditable question answering over official Icelandic statistics.
+A chatbot that answers everyday questions about Icelandic statistics with official
+figures from Statistics Iceland (Hagstofa Íslands), and shows exactly where every
+number came from.
 
-## Goals
+Built for Track 2 (direct PX-Web API) of Statistics Iceland's Gagnaþon 2026.
 
-- Retrieve observations from Statistics Iceland's PX-Web API.
-- Validate statistical queries against official table metadata.
-- Report periods, units and provenance.
-- Reject unsupported or ambiguous queries rather than invent answers.
+> **Hver er verðbólgan núna?**
+> Vísitala neysluverðs, ársbreyting í október 2026: 5,9%. Heimild: Hagstofa Íslands,
+> Vísitala neysluverðs og breytingar, grunnur 1988=100.
+
+Every figure is retrieved live from [px.hagstofa.is](https://px.hagstofa.is) and checked
+against the exact query that was sent. Talnaspor uses **no language model at runtime**:
+questions are interpreted by explicit rules, and answers are filled into fixed Icelandic
+templates, so a number can never be invented.
+
+## Quick start
+
+Requires Python 3.11 or later and [uv](https://docs.astral.sh/uv/).
+
+```sh
+make sync    # Install exact dependency versions from uv.lock
+make run     # Start the server
+```
+
+Open <http://127.0.0.1:8000> and ask a question, or click one of the examples.
+
+Without `make`, run `uv sync --locked` and then
+`uv run --locked uvicorn talnaspor.app:app`.
+
+## What you can ask
+
+Questions can be in Icelandic or English. Answers are in Icelandic.
+
+| Topic | Examples | Source table |
+|---|---|---|
+| Inflation and the consumer price index | *Hver er verðbólgan núna?* · *Verðbólga án húsnæðis í mars 2026* · *Hver var mánaðarbreyting vísitölu neysluverðs í ágúst 2026?* · *What was the consumer price index in June 2025?* | [VIS01000](https://px.hagstofa.is/pxis/pxweb/is/Efnahagur/Efnahagur__visitolur__1_vnv__1_vnv/VIS01000.px), by month |
+| Population | *Hvað búa margir á Íslandi?* · *Hver var mannfjöldinn í fyrra?* · *Hver var fjölgun íbúa árið 2024?* · *Hve margir aðfluttir umfram brottflutta 2023?* | [MAN00000](https://px.hagstofa.is/pxis/pxweb/is/Ibuar/Ibuar__mannfjoldi__1_yfirlit__Yfirlit_mannfjolda/MAN00000.px), by year |
+| Change over time | *How has Iceland's population changed?* · *Verðbólga í september 2025 og 2026* · *Hvernig hefur mannfjöldinn breyst frá 2000?* | Either table |
+
+- **CPI measures:** the index level, monthly change and annual change (inflation), with
+  or without housing.
+- **Population measures:** population on 1 January, growth (number and %), net
+  migration and natural increase.
+- **Periods:** a named month or year, the latest published period when none is given,
+  "last year" for population, or two periods to compare.
+- **Comparisons:** a change in a percentage is reported in percentage points. Levels such
+  as population also get the relative change.
+
+When a question is ambiguous or unsupported, Talnaspor asks for clarification instead of
+guessing. When a figure has not been published (Statistics Iceland marks it `..`), it
+says so instead of substituting another period.
+
+## How it works
+
+```
+question ─▶ interpret ─▶ table metadata ─▶ validated query ─▶ PX-Web API
+                                                                    │
+answer card ◀─ Icelandic template ◀─ verified observation ◀─ JSON-stat2 decoder
+```
+
+1. **Interpret** ([interpret.py](src/talnaspor/interpret.py)): normalizes the text (case,
+   accents, þ, æ, ð), then uses keyword rules to choose a table, a measure and the
+   periods. Nothing is guessed: missing or ambiguous details lead to a clarification.
+2. **Validate** ([query.py](src/talnaspor/query.py), [pxweb.py](src/talnaspor/pxweb.py)):
+   fetches the table's metadata and accepts only dimension codes and values that the
+   table actually defines.
+3. **Retrieve** ([pxweb.py](src/talnaspor/pxweb.py)): posts the query to PX-Web and
+   requests JSON-stat2.
+4. **Verify** ([jsonstat.py](src/talnaspor/jsonstat.py)): rejects any response that
+   does not answer exactly the query sent: wrong dimensions, substituted categories,
+   wrong shape, missing or non-numeric values.
+5. **Present** ([answer.py](src/talnaspor/answer.py), [tables.py](src/talnaspor/tables.py)):
+   formats numbers in Icelandic style without rounding away any digit Statistics Iceland
+   reported, and attaches the unit, period, source, table title and a link to the table.
+
+The browser page ([index.html](src/talnaspor/static/index.html)) is a single file with no
+external scripts or fonts. Each answer card shows the figure, the source sentence, a link
+to the table, the response time, and the exact query sent to Statistics Iceland, so
+anyone can check the answer at the source.
+
+### API
+
+`POST /ask` takes `{"question": "..."}` and returns one of four statuses:
+
+| `status` | Meaning | HTTP |
+|---|---|---|
+| `answer` | A verified figure in `answer`, or a change between two periods in `comparison` | 200 |
+| `clarification` | The question needs more detail; `message` says what | 200 |
+| `refusal` | The figure could not be verified, such as unpublished data; the reason is in `detail` | 200 |
+| `error` | Statistics Iceland could not be reached | 502 |
+
+```sh
+curl -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
+     -d '{"question": "Hver er verðbólgan núna?"}'
+```
+
+Interactive API documentation is at <http://127.0.0.1:8000/docs>.
+
+## Evaluation
+
+[evaluation/questions.json](evaluation/questions.json) holds 36 realistic questions. Each
+expected figure was fetched by
+[scripts/fetch_expected.py](scripts/fetch_expected.py), which shares no code with
+Talnaspor's table configuration, query builder or decoder, and uses a different response
+format.
+
+```sh
+make evaluate    # Ask every question live and write evaluation/results.md
+```
+
+Latest run: **34 pass, 2 documented limitations, 0 failures**. See
+[evaluation/results.md](evaluation/results.md). Every question's interpretation is also
+checked offline by `make check`.
+
+## Known limitations
+
+- **Two tables.** Only the consumer price index and key population figures are
+  supported. Adding a table means adding its configuration to
+  [tables.py](src/talnaspor/tables.py) and keywords to
+  [interpret.py](src/talnaspor/interpret.py).
+- **Keyword rules.** Unusual phrasing gets a clarification rather than an answer.
+- **Relative periods.** "Last year" works for population. Others, such as
+  "síðustu fimm ár" or "last month", get a clarification instead of an answer.
+- **Two periods at most.** There are no time series or charts.
+- **Icelandic answers only,** including for questions asked in English.
+- **The latest year is incomplete for population.** Only the 1 January figure is
+  published for the current year, so other measures for that year are refused.
+- **Live data only.** Talnaspor needs network access to px.hagstofa.is.
+
+## Runtime and data
+
+- **Software:** Python with FastAPI, Uvicorn, Requests, Pydantic and pandas, all free
+  and open-source. No paid or hosted services and no language models are used at
+  runtime. The only external service contacted is Statistics Iceland's public API.
+- **Data:** Statistics Iceland (Hagstofa Íslands), retrieved live from
+  [px.hagstofa.is](https://px.hagstofa.is).
+- **Design decision:** [docs/adr/001-separate-retrieval.md](docs/adr/001-separate-retrieval.md).
 
 ## Development
 
-Python 3.11 or later.
-
-Install [uv](https://docs.astral.sh/uv/) and use the Makefile for common tasks:
-
 ```sh
 make sync          # Install the project and development tools from uv.lock
-make run           # Start the API at http://127.0.0.1:8000 (docs at /docs)
+make run           # Start the server at http://127.0.0.1:8000 (API docs at /docs)
 make evaluate      # Ask the evaluation questions live; write evaluation/results.md
 make check         # Check the lockfile, lint, formatting, types, and tests
 make format        # Format Python code
@@ -28,21 +153,7 @@ make clean         # Remove generated artifacts and caches; preserve .venv
 make distclean     # Also remove .venv; run make sync to start again
 ```
 
-Ask a question once the API is running:
-
-```sh
-curl -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
-     -d '{"question": "Hver er verðbólgan núna?"}'
-```
-
-Run `make` or `make help` for every target. For example, use
-`make test PYTEST_ARGS='-q -k query'` to pass pytest options. `UV` and
-`RUFF_ARGS` and `MYPY_ARGS` can also be overridden on the command line.
-
-`make clean` works without Python or uv, including after a failed build. It
-removes Python bytecode, tool caches, package metadata, build outputs, and
-coverage reports. It preserves virtual environments, Git metadata, source,
-documentation, `uv.lock`, and `.env`. `make clean-venv` removes only `.venv`.
-Cleanup does not clear uv's shared download cache or follow symlinks.
-
-The project is under active development for Gagnaþon 2026.
+Run `make help` for every target. Pass pytest options with, for example,
+`make test PYTEST_ARGS='-q -k query'`. The tests run offline, using real Statistics
+Iceland responses saved in [tests/fixtures](tests/fixtures).
+`scripts/capture_fixtures.py` refreshes them.
