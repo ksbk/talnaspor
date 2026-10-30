@@ -15,6 +15,40 @@ from talnaspor.tables import TABLES, Measure, Table
 LATEST = "latest"
 SOURCE = "Hagstofa Íslands"
 
+Lang = Literal["is", "en"]
+
+WORDS: dict[str, dict[str, str]] = {
+    "is": {
+        "agency": "Hagstofa Íslands",
+        "source": "Heimild",
+        "note": "Athugasemd Hagstofu",
+        "change": "Breyting",
+        "points": "prósentustig",
+    },
+    "en": {
+        "agency": "Statistics Iceland",
+        "source": "Source",
+        "note": "Note from Statistics Iceland",
+        "change": "Change",
+        "points": "percentage points",
+    },
+}
+
+MONTHS_EN = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
 MONTHS = (
     "janúar",
     "febrúar",
@@ -89,7 +123,7 @@ def before_latest(steps: int) -> str:
     return f"{LATEST}-{steps}"
 
 
-def answer(table_key: str, selections: Mapping[str, str]) -> Answer:
+def answer(table_key: str, selections: Mapping[str, str], lang: Lang = "is") -> Answer:
     """Retrieve, verify and present one observation from a supported table.
 
     The time selection may be LATEST or before_latest(n), which resolve against the
@@ -101,30 +135,34 @@ def answer(table_key: str, selections: Mapping[str, str]) -> Answer:
         raise ValueError(f"Expected one observation, received {len(data.observations)}")
 
     observation = data.observations[0]
-    point, sentence = _point(observation, table, measure, data)
-    source = data.source or SOURCE
-    text = f"{sentence}. Heimild: {source}, {title}."
+    point, sentence = _point(observation, table, measure, data, lang)
+    words = WORDS[lang]
+    source = (data.source or SOURCE) if lang == "is" else words["agency"]
+    title = title if lang == "is" else table.title_en
+    text = f"{sentence}. {words['source']}: {source}, {title}."
     if observation.status:
-        text += f" Athugasemd Hagstofu: {observation.status}."
+        text += f" {words['note']}: {observation.status}."
 
     return Answer(
         text=text,
         value=observation.value,
         value_text=point.value_text,
-        unit=measure.unit,
+        unit=measure.unit if lang == "is" else measure.unit_en,
         period=point.period,
         period_label=point.period_label,
         table_title=title,
         source=source,
-        page_url=table.page_url,
+        page_url=table.page_url if lang == "is" else table.page_url_en,
         api_url=table.api_url,
         selections=observation.codes,
-        labels=observation.labels,
+        labels=_labels(observation, table, lang),
         status=observation.status,
     )
 
 
-def compare(table_key: str, selections: Mapping[str, str], start: str) -> Comparison:
+def compare(
+    table_key: str, selections: Mapping[str, str], start: str, lang: Lang = "is"
+) -> Comparison:
     """Compare one measure between a start period and the selected end period.
 
     Both periods may be LATEST or before_latest(n). Percentages are compared in
@@ -138,8 +176,10 @@ def compare(table_key: str, selections: Mapping[str, str], start: str) -> Compar
         raise ValueError(f"Expected two observations, received {len(data.observations)}")
 
     first, last = sorted(data.observations, key=lambda o: o.codes[table.time_code])
-    start_point, start_sentence = _point(first, table, measure, data)
-    end_point, end_sentence = _point(last, table, measure, data)
+    start_point, start_sentence = _point(first, table, measure, data, lang)
+    end_point, end_sentence = _point(last, table, measure, data, lang)
+    words = WORDS[lang]
+    unit = measure.unit if lang == "is" else measure.unit_en
 
     difference_exact = Decimal(repr(last.value)) - Decimal(repr(first.value))
     difference: int | float = (
@@ -147,24 +187,30 @@ def compare(table_key: str, selections: Mapping[str, str], start: str) -> Compar
         if isinstance(first.value, int) and isinstance(last.value, int)
         else float(difference_exact)
     )
-    difference_unit = "prósentustig" if measure.unit == "%" else measure.unit
-    difference_text = _signed(format_value(difference, data.decimals, difference_unit), difference)
+    difference_unit = words["points"] if unit == "%" else unit
+    difference_text = _signed(
+        format_value(difference, data.decimals, difference_unit, lang), difference
+    )
 
     relative_change_text = None
     if measure.unit != "%" and first.value != 0:
         relative = round(float(difference_exact / abs(Decimal(repr(first.value))) * 100), 1)
-        relative_change_text = _signed(format_value(relative, 1, "%"), relative)
+        relative_change_text = _signed(format_value(relative, 1, "%", lang), relative)
 
     change = difference_text + (f" ({relative_change_text})" if relative_change_text else "")
-    source = data.source or SOURCE
-    text = f"{start_sentence}. {end_sentence}. Breyting: {change}. Heimild: {source}, {title}."
+    source = (data.source or SOURCE) if lang == "is" else words["agency"]
+    title = title if lang == "is" else table.title_en
+    text = (
+        f"{start_sentence}. {end_sentence}. {words['change']}: {change}. "
+        f"{words['source']}: {source}, {title}."
+    )
     statuses = sorted({o.status for o in (first, last) if o.status})
     if statuses:
-        text += f" Athugasemd Hagstofu: {', '.join(statuses)}."
+        text += f" {words['note']}: {', '.join(statuses)}."
 
     return Comparison(
         text=text,
-        unit=measure.unit,
+        unit=unit,
         start=start_point,
         end=end_point,
         difference=difference,
@@ -172,7 +218,7 @@ def compare(table_key: str, selections: Mapping[str, str], start: str) -> Compar
         relative_change_text=relative_change_text,
         table_title=title,
         source=source,
-        page_url=table.page_url,
+        page_url=table.page_url if lang == "is" else table.page_url_en,
         api_url=table.api_url,
         selections={
             code: [first.codes[code], last.codes[code]]
@@ -180,7 +226,11 @@ def compare(table_key: str, selections: Mapping[str, str], start: str) -> Compar
             else [first.codes[code]]
             for code in first.codes
         },
-        labels={code: label for code, label in first.labels.items() if code != table.time_code},
+        labels={
+            code: label
+            for code, label in _labels(first, table, lang).items()
+            if code != table.time_code
+        },
     )
 
 
@@ -212,13 +262,15 @@ def _retrieve(
 
 
 def _point(
-    observation: Observation, table: Table, measure: Measure, data: StatData
+    observation: Observation, table: Table, measure: Measure, data: StatData, lang: Lang
 ) -> tuple[Point, str]:
     period = observation.codes[table.time_code]
-    period_label = format_period(period)
-    value_text = format_value(observation.value, data.decimals, measure.unit)
-    sentence = measure.template.format_map(
-        {**observation.labels, "period": period_label, "value": value_text}
+    period_label = format_period(period, lang)
+    unit = measure.unit if lang == "is" else measure.unit_en
+    value_text = format_value(observation.value, data.decimals, unit, lang)
+    template = measure.template if lang == "is" else measure.template_en
+    sentence = template.format_map(
+        {**_labels(observation, table, lang), "period": period_label, "value": value_text}
     )
     point = Point(
         period=period,
@@ -228,6 +280,16 @@ def _point(
         status=observation.status,
     )
     return point, sentence
+
+
+def _labels(observation: Observation, table: Table, lang: Lang) -> dict[str, str]:
+    """Category labels in the answer's language, from Statistics Iceland's English labels."""
+    if lang == "is":
+        return dict(observation.labels)
+    return {
+        code: table.labels_en.get(code, {}).get(value, observation.labels[code])
+        for code, value in observation.codes.items()
+    }
 
 
 def _resolve_period(token: str, latest: str) -> str:
@@ -254,19 +316,25 @@ def _signed(text: str, value: float) -> str:
     return f"+{text}" if value > 0 else text
 
 
-def format_period(code: str) -> str:
-    """Render a PX-Web time code such as 2026M09 in Icelandic."""
+def format_period(code: str, lang: Lang = "is") -> str:
+    """Render a PX-Web time code such as 2026M09 or 2026Á2 in Icelandic or English."""
     month = re.fullmatch(r"(\d{4})M(0[1-9]|1[0-2])", code)
     if month:
-        return f"{MONTHS[int(month[2]) - 1]} {month[1]}"
+        names = MONTHS if lang == "is" else MONTHS_EN
+        return f"{names[int(month[2]) - 1]} {month[1]}"
     quarter = re.fullmatch(r"(\d{4})[ÁQK]([1-4])", code)
     if quarter:
+        if lang == "en":
+            return f"Q{quarter[2]} {quarter[1]}"
         return f"{quarter[2]}. ársfjórðungur {quarter[1]}"
     return code
 
 
-def format_value(value: float, decimals: int | None, unit: str) -> str:
-    """Format a value in Icelandic style without dropping any reported digits.
+def format_value(value: float, decimals: int | None, unit: str, lang: Lang = "is") -> str:
+    """Format a value without dropping any reported digits.
+
+    Icelandic style uses a decimal comma and dot separators (1.234,5); English style the
+    reverse (1,234.5).
 
     Table-level decimals can understate a measure's precision, so the value's own
     digits are never rounded away.
@@ -274,7 +342,9 @@ def format_value(value: float, decimals: int | None, unit: str) -> str:
     exponent = Decimal(repr(value)).as_tuple().exponent
     own_decimals = -exponent if isinstance(exponent, int) and exponent < 0 else 0
     places = max(decimals or 0, own_decimals)
-    number = f"{value:,.{places}f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    number = f"{value:,.{places}f}"
+    if lang == "is":
+        number = number.replace(",", "_").replace(".", ",").replace("_", ".")
     if not unit:
         return number
     return f"{number}%" if unit == "%" else f"{number} {unit}"

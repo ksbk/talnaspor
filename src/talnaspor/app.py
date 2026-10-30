@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from talnaspor.answer import Answer, Comparison, answer, compare
+from talnaspor.answer import Answer, Comparison, Lang, answer, compare
 from talnaspor.catalog import TableHit, search, topic_word
 from talnaspor.interpret import Clarification, interpret
 from talnaspor.planner import Choice, plan_answer
@@ -18,10 +18,24 @@ app = FastAPI(title="Talnaspor")
 
 INDEX = Path(__file__).parent / "static" / "index.html"
 
-SUGGESTIONS = (
-    "Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands "
-    "fjalla líklega um efnið:"
-)
+MESSAGES: dict[str, dict[str, str]] = {
+    "is": {
+        "suggestions": (
+            "Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands "
+            "fjalla líklega um efnið:"
+        ),
+        "error": "Ekki náðist samband við Hagstofu Íslands. Reyndu aftur síðar.",
+        "refusal": ("Ekki tókst að svara spurningunni með staðfestum gögnum frá Hagstofu Íslands."),
+    },
+    "en": {
+        "suggestions": (
+            "I cannot answer this directly yet, but these Statistics Iceland tables "
+            "probably cover it:"
+        ),
+        "error": "Statistics Iceland could not be reached. Please try again later.",
+        "refusal": ("I could not answer this question with verified data from Statistics Iceland."),
+    },
+}
 
 
 Question = Annotated[str, Field(min_length=1, max_length=500)]
@@ -32,10 +46,12 @@ MAX_BATCH = 10
 
 class AskRequest(BaseModel):
     question: Question
+    lang: Lang = "is"
 
 
 class AskBatchRequest(BaseModel):
     questions: list[Question] = Field(min_length=1, max_length=MAX_BATCH)
+    lang: Lang = "is"
 
 
 class AskResponse(BaseModel):
@@ -84,7 +100,7 @@ def index() -> FileResponse:
 @app.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest) -> AskResponse | JSONResponse:
     """Answer a statistical question from verified PX-Web data, or explain why not."""
-    response = respond_to(request.question)
+    response = respond_to(request.question, request.lang)
     if response.status == "error":
         return JSONResponse(status_code=502, content=response.model_dump(mode="json"))
     return response
@@ -98,14 +114,14 @@ def ask_batch(request: AskBatchRequest) -> AskBatchResponse:
     failure to reach Statistics Iceland, does not fail the others.
     """
     started = time.perf_counter()
-    answers = [respond_to(question) for question in request.questions]
+    answers = [respond_to(question, request.lang) for question in request.questions]
     return AskBatchResponse(
         answers=answers, elapsed_ms=round((time.perf_counter() - started) * 1000)
     )
 
 
-def respond_to(question: str) -> AskResponse:
-    """Answer one question, reporting failures in the response status."""
+def respond_to(question: str, lang: Lang = "is") -> AskResponse:
+    """Answer one question in the given language, reporting failures in the status."""
     started = time.perf_counter()
 
     def respond(**fields: object) -> AskResponse:
@@ -114,18 +130,19 @@ def respond_to(question: str) -> AskResponse:
             {"question": question, "elapsed_ms": elapsed_ms, **fields}
         )
 
+    messages = MESSAGES[lang]
     interpretation = interpret(question)
     if isinstance(interpretation, Clarification):
         tables = [] if interpretation.recognized else search(question, limit=10)
         if not tables:
-            return respond(status="clarification", message=interpretation.message)
-        planned = plan_answer(question, candidates(question, tables))
+            return respond(status="clarification", message=interpretation.text(lang))
+        planned = plan_answer(question, candidates(question, tables), lang=lang)
         if isinstance(planned, Answer):
             others = [t for t in tables if t.api_url != planned.api_url][:4]
             return respond(status="answer", message=planned.text, answer=planned, tables=others)
-        message = SUGGESTIONS
+        message = messages["suggestions"]
         if isinstance(planned, Choice):
-            message = f"{planned.message()} {SUGGESTIONS}"
+            message = f"{planned.message(lang)} {message}"
             if planned.table:
                 # The table the choice refers to comes first.
                 others = [t for t in tables if t.api_url != planned.table.api_url]
@@ -140,23 +157,26 @@ def respond_to(question: str) -> AskResponse:
     try:
         if interpretation.compare_from is not None:
             comparison = compare(
-                interpretation.table, interpretation.selections, interpretation.compare_from
+                interpretation.table,
+                interpretation.selections,
+                interpretation.compare_from,
+                lang,
             )
             return respond(
                 status="answer", message=comparison.text, comparison=comparison, **context
             )
-        result = answer(interpretation.table, interpretation.selections)
+        result = answer(interpretation.table, interpretation.selections, lang)
     except requests.RequestException as error:
         return respond(
             status="error",
-            message="Ekki náðist samband við Hagstofu Íslands. Reyndu aftur síðar.",
+            message=messages["error"],
             detail=str(error),
             **context,
         )
     except ValueError as error:
         return respond(
             status="refusal",
-            message="Ekki tókst að svara spurningunni með staðfestum gögnum frá Hagstofu Íslands.",
+            message=messages["refusal"],
             detail=str(error),
             **context,
         )

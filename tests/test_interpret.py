@@ -61,7 +61,7 @@ def test_interprets_population_questions(question: str, selections: dict[str, st
 @pytest.mark.parametrize(
     ("question", "message"),
     [
-        ("Hvernig er veðrið?", "skildi ekki"),
+        ("Hvernig er veðrið?", "fann ekki svar"),
         ("Verðbólga og mannfjöldi árið 2024", "eitt efni"),
         ("Verðbólga árið 2024", "Tilgreindu mánuð"),
         ("Verðbólga í september", "Tilgreindu ár"),
@@ -225,3 +225,28 @@ def test_never_ignores_relative_periods(question: str, message: str) -> None:
 
     assert isinstance(result, Clarification)
     assert message in result.message
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Hvernig er veðrið?",
+        "Verðbólga og mannfjöldi árið 2024",
+        "Verðbólga árið 2024",
+        "Verðbólga í september",
+        "Verðbólga í janúar, febrúar og mars 2026",
+        "Mannfjöldi 2005, 2015 og 2025",
+        "Verðbólga í janúar 2024, 2025 og 2026",
+        "Hver var breytingin á vísitölu neysluverðs í september 2026?",
+        "What was inflation last year?",
+        "Hvernig hefur mannfjöldinn breyst síðustu fimm ár?",
+    ],
+)
+def test_every_clarification_has_english_wording(question: str) -> None:
+    result = interpret(question)
+
+    assert isinstance(result, Clarification)
+    assert result.text("is") == result.message
+    assert result.text("en") == result.message_en
+    assert result.message_en and result.message_en != result.message
+    assert not set("áðéíóúýþæö") & set(result.message_en.lower())

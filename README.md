@@ -16,8 +16,11 @@ table's dimensions, and otherwise points to the tables that hold the answer.
 
 Every figure is retrieved live from [px.hagstofa.is](https://px.hagstofa.is) and checked
 against the exact query that was sent. Talnaspor uses **no language model at runtime**:
-questions are interpreted by explicit rules, and answers are filled into fixed Icelandic
-templates, so a number can never be invented.
+questions are interpreted by explicit rules, and answers are filled into fixed templates,
+so a number can never be invented.
+
+The interface and answers are in Icelandic or English, switched with **ÍS / EN** in the
+page. English answers use Statistics Iceland's own English labels and table titles.
 
 ## Quick start
 
@@ -47,7 +50,8 @@ pip resolves dependency versions itself; uv installs the exact versions tested, 
 
 ## What you can ask
 
-Questions can be in Icelandic or English. Answers are in Icelandic.
+Questions can be in Icelandic or English, whichever language the page is set to. Answers,
+clarifications and the interface follow the **ÍS / EN** switch.
 
 | Topic | Examples | Source table |
 |---|---|---|
@@ -78,7 +82,7 @@ says so instead of substituting another period.
 ```
 question ─▶ interpret ─▶ table metadata ─▶ validated query ─▶ PX-Web API
                                                                     │
-answer card ◀─ Icelandic template ◀─ verified observation ◀─ JSON-stat2 decoder
+answer card ◀─ ÍS/EN template ◀─ verified observation ◀─ JSON-stat2 decoder
 ```
 
 1. **Interpret** ([interpret.py](src/talnaspor/interpret.py)): normalizes the text (case,
@@ -118,7 +122,8 @@ anyone can check the answer at the source.
 
 ### API
 
-`POST /ask` takes `{"question": "..."}` and returns one of five statuses:
+`POST /ask` takes `{"question": "...", "lang": "is"}` (`lang` is `is` or `en`, default
+`is`) and returns one of five statuses:
 
 | `status` | Meaning | HTTP |
 |---|---|---|
@@ -133,7 +138,8 @@ curl -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
      -d '{"question": "Hver er verðbólgan núna?"}'
 ```
 
-`POST /ask/batch` takes up to 10 questions, `{"questions": ["...", "..."]}`, and returns
+`POST /ask/batch` takes up to 10 questions, `{"questions": ["...", "..."], "lang": "is"}`,
+and returns
 `{"answers": [...]}`: one `/ask` response per question, in order. Each has its own
 status, so a question that fails does not fail the others, and the call returns 200.
 
@@ -146,7 +152,8 @@ Interactive API documentation is at <http://127.0.0.1:8000/docs>.
 
 ## Evaluation
 
-[evaluation/questions.json](evaluation/questions.json) holds 47 realistic questions. Each
+[evaluation/questions.json](evaluation/questions.json) holds 57 realistic questions, 10 of
+them answered in English. Each
 expected figure was fetched by
 [scripts/fetch_expected.py](scripts/fetch_expected.py), which shares no code with
 Talnaspor's table configuration, query builder or decoder, and uses a different response
@@ -156,7 +163,7 @@ format.
 make evaluate    # Ask every question live and write evaluation/results.md
 ```
 
-Latest run: **44 pass, 3 documented limitations, 0 failures**. This includes 8 answers
+Latest run: **54 pass, 3 documented limitations, 0 failures**. This includes 8 answers
 from catalog tables, each checked for the table, period, every selected value and the
 figure, and 3 questions where the expected table must be among those suggested. See
 [evaluation/results.md](evaluation/results.md). Every question's interpretation is also
@@ -178,7 +185,9 @@ checked offline by `make check`.
 - **Relative periods.** "Last year" works for population. Others, such as
   "síðustu fimm ár" or "last month", get a clarification instead of an answer.
 - **Two periods at most.** There are no time series or charts.
-- **Icelandic answers only,** including for questions asked in English.
+- **English depends on Statistics Iceland's English tables.** Catalog answers from a table
+  without an English version keep its Icelandic labels and say so. In English table
+  suggestions, the top-level folder name stays in Icelandic.
 - **The latest year is incomplete for population.** Only the 1 January figure is
   published for the current year, so other measures for that year are refused.
 - **Live data only.** Talnaspor needs network access to px.hagstofa.is.

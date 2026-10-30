@@ -51,7 +51,21 @@
     margin: 0 auto;
     padding: 24px 16px 48px;
   }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
   header h1 { margin: 0; font-size: 1.75rem; }
+  .languages { display: flex; gap: 4px; flex-shrink: 0; }
+  .languages button {
+    padding: 4px 10px;
+    font-size: 0.875rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .languages button[aria-pressed="true"] {
+    color: var(--accent-text);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
   header p { margin: 4px 0 0; color: var(--muted); }
   form {
     display: flex;
@@ -146,36 +160,125 @@
 <body>
 <main>
   <header>
-    <h1>Talnaspor</h1>
-    <p>Spurðu um hagtölur á íslensku eða ensku. Svörin koma beint úr opinberum gögnum Hagstofu Íslands.</p>
+    <div>
+      <h1>Talnaspor</h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="languages" role="group" aria-label="Tungumál / Language">
+      <button type="button" data-lang="is">ÍS</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
   </header>
 
   <form id="ask">
-    <label for="question" hidden>Spurning</label>
-    <input id="question" type="text" maxlength="500" autocomplete="off" required
-           placeholder="t.d. Hver er verðbólgan núna?">
-    <button id="send" type="submit">Spyrja</button>
+    <label id="question-label" for="question" hidden></label>
+    <input id="question" type="text" maxlength="500" autocomplete="off" required>
+    <button id="send" type="submit"></button>
   </form>
 
-  <div class="examples" aria-label="Dæmi um spurningar">
-    <button type="button">Hver er verðbólgan núna?</button>
-    <button type="button">Hvað búa margir á Íslandi?</button>
-    <button type="button">Hvernig hefur mannfjöldinn breyst?</button>
-    <button type="button">Verðbólga í september 2025 og 2026</button>
-    <button type="button">Verðbólga án húsnæðis í mars 2026</button>
-    <button type="button">Hver var fjölgun íbúa árið 2024?</button>
-    <button type="button">Hversu margir eru atvinnulausir á Íslandi?</button>
-    <button type="button">Hver er munurinn á launum karla og kvenna?</button>
-    <button type="button">Verðbólga árið 2024</button>
-  </div>
+  <div class="examples" id="examples"></div>
 
   <section id="log" aria-live="polite"></section>
 </main>
 
 <script>
+  const TEXT = {
+    is: {
+      subtitle: "Spurðu um hagtölur á íslensku eða ensku. Svörin koma beint úr opinberum gögnum Hagstofu Íslands.",
+      question: "Spurning",
+      placeholder: "t.d. Hver er verðbólgan núna?",
+      send: "Spyrja",
+      examplesLabel: "Dæmi um spurningar",
+      examples: [
+        "Hver er verðbólgan núna?",
+        "Hvað búa margir á Íslandi?",
+        "Hvernig hefur mannfjöldinn breyst?",
+        "Verðbólga í september 2025 og 2026",
+        "Verðbólga án húsnæðis í mars 2026",
+        "Hver var fjölgun íbúa árið 2024?",
+        "Hversu margir eru atvinnulausir á Íslandi?",
+        "Hver er munurinn á launum karla og kvenna?",
+        "Verðbólga árið 2024",
+      ],
+      openTable: "Opna töflu hjá Hagstofu: ",
+      time: "Svartími",
+      query: "Sýna fyrirspurn til Hagstofu",
+      queryTable: "tafla",
+      queryValues: "val",
+      updated: "uppfært",
+      unit: "eining",
+      note: "Athugasemd Hagstofu",
+      notice: "Sjálfvirkt valið úr töflu Hagstofu eftir orðum spurningarinnar. Athugaðu valin gildi:",
+      otherTables: "Aðrar töflur um efnið",
+      more: "Nánar",
+      loading: "Sæki gögn frá Hagstofu Íslands…",
+      invalid: "Skrifaðu spurningu (að hámarki 500 stafir).",
+      offline: "Ekki náðist samband við þjóninn. Reyndu aftur.",
+    },
+    en: {
+      subtitle: "Ask about Icelandic statistics in English or Icelandic. Answers come straight from Statistics Iceland's official data.",
+      question: "Question",
+      placeholder: "e.g. What is inflation now?",
+      send: "Ask",
+      examplesLabel: "Example questions",
+      examples: [
+        "What is inflation now?",
+        "How many people live in Iceland?",
+        "How has Iceland's population changed?",
+        "Inflation in September 2025 and 2026",
+        "Inflation excluding housing in March 2026",
+        "What was the population increase in 2024?",
+        "How many people are unemployed in Iceland?",
+        "What is the gender pay gap?",
+        "What was inflation in 2024?",
+      ],
+      openTable: "Open the table at Statistics Iceland: ",
+      time: "Response time",
+      query: "Show the query sent to Statistics Iceland",
+      queryTable: "table",
+      queryValues: "values",
+      updated: "updated",
+      unit: "unit",
+      note: "Note from Statistics Iceland",
+      notice: "Selected automatically from a Statistics Iceland table, based on the words in your question. Check the selected values:",
+      otherTables: "Other tables on this topic",
+      more: "Details",
+      loading: "Fetching data from Statistics Iceland…",
+      invalid: "Please write a question (at most 500 characters).",
+      offline: "Could not reach the server. Please try again.",
+    },
+  };
+
   const form = document.getElementById("ask");
   const input = document.getElementById("question");
   const log = document.getElementById("log");
+  const examples = document.getElementById("examples");
+  let lang = "is";
+
+  function t(key) {
+    return TEXT[lang][key];
+  }
+
+  function setLanguage(next) {
+    lang = next === "en" ? "en" : "is";
+    try { localStorage.setItem("talnaspor-lang", lang); } catch (error) {}
+    document.documentElement.lang = lang;
+    document.getElementById("subtitle").textContent = t("subtitle");
+    document.getElementById("question-label").textContent = t("question");
+    document.getElementById("send").textContent = t("send");
+    input.placeholder = t("placeholder");
+    examples.setAttribute("aria-label", t("examplesLabel"));
+    examples.textContent = "";
+    for (const question of t("examples")) {
+      const button = element("button", "", question);
+      button.type = "button";
+      button.addEventListener("click", () => ask(question));
+      examples.append(button);
+    }
+    document.querySelectorAll(".languages button").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
+    });
+  }
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -190,14 +293,36 @@
     return box;
   }
 
+  function link(text, url) {
+    const anchor = element("a", "", text);
+    anchor.href = url;
+    anchor.target = "_blank";
+    anchor.rel = "noopener";
+    return anchor;
+  }
+
   function sourceLink(result) {
     const source = element("p", "meta");
-    const link = element("a", "", result.table_title);
-    link.href = result.page_url;
-    link.target = "_blank";
-    link.rel = "noopener";
-    source.append("Opna töflu hjá Hagstofu: ", link);
+    source.append(t("openTable"), link(result.table_title, result.page_url));
     return source;
+  }
+
+  function timing(body) {
+    return element("p", "meta", t("time") + ": " + body.elapsed_ms + " ms");
+  }
+
+  function query(result) {
+    return details(t("query"), JSON.stringify(
+      { [t("queryTable")]: result.api_url, [t("queryValues")]: result.selections }, null, 2));
+  }
+
+  // Tables without an English version keep their Icelandic title and page.
+  function tableTitle(table) {
+    return lang === "en" && table.title_en ? table.title_en : table.title;
+  }
+
+  function tableUrl(table) {
+    return lang === "en" && table.title_en ? table.page_url_en : table.page_url;
   }
 
   function renderComparison(reply, body) {
@@ -220,9 +345,8 @@
       points,
       element("p", "sentence", body.message),
       sourceLink(comparison),
-      element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"),
-      details("Sýna fyrirspurn til Hagstofu", JSON.stringify(
-        { tafla: comparison.api_url, val: comparison.selections }, null, 2)),
+      timing(body),
+      query(comparison),
     );
   }
 
@@ -230,19 +354,12 @@
     const list = element("ol", "tables");
     for (const table of body.tables) {
       const item = element("li");
-      const link = element("a", "", table.title);
-      link.href = table.page_url;
-      link.target = "_blank";
-      link.rel = "noopener";
-      const updated = table.updated ? " · uppfært " + table.updated.slice(0, 10) : "";
-      item.append(link, element("div", "meta", table.folders.join(" › ") + updated));
+      const folders = lang === "en" && table.folders_en.length ? table.folders_en : table.folders;
+      const updated = table.updated ? " · " + t("updated") + " " + table.updated.slice(0, 10) : "";
+      item.append(link(tableTitle(table), tableUrl(table)), element("div", "meta", folders.join(" › ") + updated));
       list.append(item);
     }
-    reply.append(
-      element("p", "sentence", body.message),
-      list,
-      element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"),
-    );
+    reply.append(element("p", "sentence", body.message), list, timing(body));
   }
 
   function renderAnswer(reply, body) {
@@ -255,35 +372,30 @@
     const figure = catalogUnit
       ? answer.value_text.replace(" (" + answer.unit + ")", "")
       : answer.value_text;
-    if (catalogUnit) labels.push("eining: " + answer.unit);
+    if (catalogUnit) labels.push(t("unit") + ": " + answer.unit);
 
     reply.append(
       element("div", "figure", figure),
       element("div", "labels", labels.join(" · ")),
       element("p", "sentence", body.message),
       sourceLink(answer),
-      element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"),
+      timing(body),
     );
     if (answer.status) {
-      reply.append(element("p", "meta", "Athugasemd Hagstofu: " + answer.status));
+      reply.append(element("p", "meta", t("note") + ": " + answer.status));
     }
     if (answer.kind === "catalog") {
       const chosen = element("ul", "tables");
       for (const [code, label] of Object.entries(answer.labels)) {
         chosen.append(element("li", "meta", (answer.dimension_labels[code] || code) + ": " + label));
       }
-      reply.append(
-        element("p", "notice",
-          "Sjálfvirkt valið úr töflu Hagstofu eftir orðum spurningarinnar. Athugaðu valin gildi:"),
-        chosen,
-      );
+      reply.append(element("p", "notice", t("notice")), chosen);
       if (body.tables && body.tables.length) {
-        reply.append(details("Aðrar töflur um efnið",
-          body.tables.map((table) => table.title + "\n" + table.page_url).join("\n\n")));
+        reply.append(details(t("otherTables"),
+          body.tables.map((table) => tableTitle(table) + "\n" + tableUrl(table)).join("\n\n")));
       }
     }
-    reply.append(details("Sýna fyrirspurn til Hagstofu", JSON.stringify(
-      { tafla: answer.api_url, val: answer.selections }, null, 2)));
+    reply.append(query(answer));
   }
 
   function render(reply, body) {
@@ -299,13 +411,13 @@
       return;
     }
     reply.append(element("p", "sentence", body.message));
-    if (body.detail) reply.append(details("Nánar", body.detail));
-    reply.append(element("p", "meta", "Svartími: " + body.elapsed_ms + " ms"));
+    if (body.detail) reply.append(details(t("more"), body.detail));
+    reply.append(timing(body));
   }
 
   async function ask(question) {
     const exchange = element("article", "exchange");
-    const reply = element("div", "reply loading", "Sæki gögn frá Hagstofu Íslands…");
+    const reply = element("div", "reply loading", t("loading"));
     exchange.append(element("div", "question", question), reply);
     log.prepend(exchange);
 
@@ -313,17 +425,17 @@
       const response = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, lang }),
       });
       const body = await response.json();
       if (response.status === 422) {
-        render(reply, { status: "clarification", message: "Skrifaðu spurningu (að hámarki 500 stafir).", elapsed_ms: 0 });
+        render(reply, { status: "clarification", message: t("invalid"), elapsed_ms: 0 });
       } else {
         render(reply, body);
       }
     } catch (error) {
       reply.className = "reply error";
-      reply.textContent = "Ekki náðist samband við þjóninn. Reyndu aftur.";
+      reply.textContent = t("offline");
     }
   }
 
@@ -335,9 +447,13 @@
     ask(question);
   });
 
-  document.querySelectorAll(".examples button").forEach((button) => {
-    button.addEventListener("click", () => ask(button.textContent));
+  document.querySelectorAll(".languages button").forEach((button) => {
+    button.addEventListener("click", () => setLanguage(button.dataset.lang));
   });
+
+  let saved = null;
+  try { saved = localStorage.getItem("talnaspor-lang"); } catch (error) {}
+  setLanguage(saved || "is");
 </script>
 </body>
 </html>

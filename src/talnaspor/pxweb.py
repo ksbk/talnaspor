@@ -70,12 +70,15 @@ def get_data(
     return response.text
 
 
-def get_units(table_url: str, query: dict[str, object], labels: list[str]) -> str | None:
+def get_units(
+    table_url: str, query: dict[str, object], labels: list[str], lang: str = "is"
+) -> str | None:
     """Return the unit Statistics Iceland states for a query's values, if any.
 
     The JSON formats carry no units, so the same query is requested in PX format,
     whose UNITS keyword may be general or specific to a category of the content
     dimension. A unit specific to one of the given category labels takes precedence.
+    English units are the UNITS[en] lines, matched against English labels.
     """
     response = requests.post(
         table_url,
@@ -89,7 +92,9 @@ def get_units(table_url: str, query: dict[str, object], labels: list[str]) -> st
 
     general: str | None = None
     unit: str
-    for key, unit in re.findall(r'^UNITS(?:\("([^"]*)"\))?="([^"]*)";', text, re.MULTILINE):
+    keyword = r"UNITS\[en\]" if lang == "en" else "UNITS"
+    pattern = rf'^{keyword}(?:\("([^"]*)"\))?="([^"]*)";'
+    for key, unit in re.findall(pattern, text, re.MULTILINE):
         if key in labels:
             return unit
         if not key:

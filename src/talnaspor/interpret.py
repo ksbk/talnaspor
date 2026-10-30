@@ -24,16 +24,25 @@ class Interpretation:
 class Clarification:
     """Why a question cannot be answered as asked, and what the user can ask instead.
 
-    recognized is False when the question is not about a supported topic at all.
+    The message is in Icelandic and message_en in English. recognized is False when the
+    question is not about a supported topic at all.
     """
 
     message: str
+    message_en: str
     recognized: bool = True
+
+    def text(self, lang: str) -> str:
+        return self.message_en if lang == "en" else self.message
 
 
 SUPPORTED = (
-    "Ég get svarað spurningum um verðbólgu og vísitölu neysluverðs eftir mánuðum "
-    "og um mannfjölda á Íslandi eftir árum."
+    "Spyrðu til dæmis um verðbólgu, mannfjölda, atvinnuleysi eða laun, og nefndu "
+    "tímabil ef þú vilt."
+)
+SUPPORTED_EN = (
+    "Try asking about inflation, population, unemployment or wages, for example, and "
+    "name a period if you like."
 )
 
 MONTHS = {
@@ -121,23 +130,35 @@ def interpret(question: str) -> Interpretation | Clarification:
     is_population = _has_any(text, POPULATION_WORDS)
 
     if is_cpi and is_population:
-        return Clarification(f"Spyrðu um eitt efni í einu. {SUPPORTED}")
+        return Clarification(
+            f"Spyrðu um eitt efni í einu. {SUPPORTED}",
+            f"Please ask about one topic at a time. {SUPPORTED_EN}",
+        )
     if not is_cpi and not is_population:
-        return Clarification(f"Ég skildi ekki spurninguna. {SUPPORTED}", recognized=False)
+        return Clarification(
+            f"Ég fann ekki svar við þessari spurningu í gögnum Hagstofu Íslands. {SUPPORTED}",
+            f"I could not find an answer to this question in Statistics Iceland's data. "
+            f"{SUPPORTED_EN}",
+            recognized=False,
+        )
 
     text = TWELVE_MONTHS.sub("12 manada", text)
     last_year = bool(LAST_YEAR.search(text))
     if RELATIVE.search(LAST_YEAR.sub("", text)):
         return Clarification(
             "Ég get ekki enn svarað um afstæð tímabil eins og „síðustu fimm ár“. "
-            "Tilgreindu tímabil, til dæmis „september 2026“ eða „2020 og 2025“."
+            "Tilgreindu tímabil, til dæmis „september 2026“ eða „2020 og 2025“.",
+            "I cannot yet answer about relative periods such as “the last five years”. "
+            "Please name the period, for example “September 2026” or “2020 and 2025”.",
         )
 
     if is_cpi:
         if last_year:
             return Clarification(
                 "Verðbólga er birt eftir mánuðum. Tilgreindu mánuð, "
-                "til dæmis „verðbólga í desember 2025“."
+                "til dæmis „verðbólga í desember 2025“.",
+                "Inflation is published by month. Please name a month, "
+                "for example “inflation in December 2025”.",
             )
         return _interpret_cpi(text)
     return _interpret_population(text, last_year)
@@ -161,7 +182,9 @@ def _interpret_cpi(text: str) -> Interpretation | Clarification:
     if CHANGE.search(text) and not spans and measure == "index":
         return Clarification(
             "Viltu mánaðarbreytingu eða ársbreytingu? Til dæmis "
-            "„mánaðarbreyting vísitölu neysluverðs í september 2026“."
+            "„mánaðarbreyting vísitölu neysluverðs í september 2026“.",
+            "Do you mean the monthly or the annual change? For example "
+            "“monthly change in the CPI in September 2026”.",
         )
 
     housing = _has_any(text, ("an husnaedis", "excluding housing", "without housing"))
@@ -175,7 +198,9 @@ def _interpret_population(text: str, last_year: bool) -> Interpretation | Clarif
         # The latest population figure is for 1 January of the current year.
         years = [before_latest(1)]
     if len(years) > 2:
-        return Clarification("Ég get borið saman tvö ár í einu.")
+        return Clarification(
+            "Ég get borið saman tvö ár í einu.", "I can compare two years at a time."
+        )
 
     spans = _spans(text, years)
     grows = _has_any(text, ("fjolg", "growth", "increase", "grew")) or bool(CHANGE.search(text))
@@ -238,9 +263,15 @@ def _months(text: str) -> list[str] | Clarification:
     if not months and not years:
         return []
     if not years:
-        return Clarification("Tilgreindu ár, til dæmis „verðbólga í september 2026“.")
+        return Clarification(
+            "Tilgreindu ár, til dæmis „verðbólga í september 2026“.",
+            "Please name a year, for example “inflation in September 2026”.",
+        )
     if not months:
-        return Clarification("Tilgreindu mánuð, til dæmis „verðbólga í september 2026“.")
+        return Clarification(
+            "Tilgreindu mánuð, til dæmis „verðbólga í september 2026“.",
+            "Please name a month, for example “inflation in September 2026”.",
+        )
 
     if len(months) == 1 and len(years) == 2:
         periods = {f"{year}M{months[0][1]:02d}" for _, year in years}
@@ -251,10 +282,15 @@ def _months(text: str) -> list[str] | Clarification:
             year = following[0] if following else years[-1][1]
             periods.add(f"{year}M{number:02d}")
     else:
-        return Clarification("Tilgreindu mánuð fyrir hvert ár, til dæmis „janúar 2025“.")
+        return Clarification(
+            "Tilgreindu mánuð fyrir hvert ár, til dæmis „janúar 2025“.",
+            "Please name a month for each year, for example “January 2025”.",
+        )
 
     if len(periods) > 2:
-        return Clarification("Ég get borið saman tvo mánuði í einu.")
+        return Clarification(
+            "Ég get borið saman tvo mánuði í einu.", "I can compare two months at a time."
+        )
     return sorted(periods)
 
 

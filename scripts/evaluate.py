@@ -36,12 +36,16 @@ def check(item: dict[str, Any], body: dict[str, Any]) -> str:
             return "FAIL"
         if result["period"] != item["period"]:
             return "STALE"
+        if [result["value"]] != item["values"]:
+            return "FAIL"
+        if item.get("lang", "is") == "en":
+            # English labels differ from the recorded Icelandic ones; table, period and
+            # value are checked.
+            return "PASS"
         chosen = {
             code: label for code, label in result["labels"].items() if label != item["period"]
         }
-        return (
-            "PASS" if chosen == item["labels"] and [result["value"]] == item["values"] else "FAIL"
-        )
+        return "PASS" if chosen == item["labels"] else "FAIL"
     if item["expect"] == "suggestions":
         suggested = [table["api_url"] for table in body["tables"]]
         return "PASS" if any(url.endswith("/" + item["table"]) for url in suggested) else "FAIL"
@@ -81,7 +85,8 @@ def main() -> None:
     limitations: list[str] = []
 
     for item in document["questions"]:
-        body = client.post("/ask", json={"question": item["question"]}).json()
+        lang = item.get("lang", "is")
+        body = client.post("/ask", json={"question": item["question"], "lang": lang}).json()
         outcome = check(item, body)
         if outcome == "PASS" and "limitation" in item:
             # Behaves as documented, but the documented behaviour is not a good answer.
@@ -90,7 +95,15 @@ def main() -> None:
         expected = item["expect"] + (" (known limitation)" if "limitation" in item else "")
         if "limitation" in item:
             limitations.append(f"- `{item['id']}`: {item['limitation']}")
-        cells = [item["id"], item["question"], expected, outcome, shown(body), body["elapsed_ms"]]
+        cells = [
+            item["id"],
+            lang.upper(),
+            item["question"],
+            expected,
+            outcome,
+            shown(body),
+            body["elapsed_ms"],
+        ]
         rows.append("| " + " | ".join(str(cell).replace("|", "\\|") for cell in cells) + " |")
         print(f"{outcome:16} {item['id']:8} {body['elapsed_ms']:5} ms  {item['question']}")
 
@@ -115,8 +128,8 @@ def main() -> None:
                     "Iceland has published a newer period since the values were recorded."
                 ),
                 "",
-                "| ID | Question | Expected | Result | Shown | ms |",
-                "|---|---|---|---|---|---:|",
+                "| ID | Lang | Question | Expected | Result | Shown | ms |",
+                "|---|---|---|---|---|---|---:|",
                 *rows,
                 "",
                 "## Known limitations",

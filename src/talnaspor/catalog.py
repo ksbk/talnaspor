@@ -12,6 +12,7 @@ from talnaspor.interpret import normalize
 
 CATALOG = Path(__file__).parent / "data" / "catalog.json"
 PAGE_BASE = "https://px.hagstofa.is/pxis/pxweb/is/"
+PAGE_BASE_EN = "https://px.hagstofa.is/pxen/pxweb/en/"
 API_BASE = "https://px.hagstofa.is/pxis/api/v1/is/"
 
 # Question words and other terms that say nothing about which table is meant.
@@ -132,6 +133,10 @@ STOPWORDS = frozenset(
         "munurinn",
         "muninn",
         "difference",
+        "people",
+        "persons",
+        "among",
+        "like",
         "kostar",
         "kosta",
         "kostadi",
@@ -169,6 +174,7 @@ class TableHit(BaseModel):
     updated: str | None
     folders_en: list[str] = []
     page_url: str
+    page_url_en: str
     api_url: str
     score: float
 
@@ -193,7 +199,9 @@ RELATED_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("bilar", ("okutaeki", "bifreidar")),
     ("bila", ("okutaeki", "bifreidar")),
     ("cars", ("okutaeki", "bifreidar")),
-    ("gdp", ("landsframleidsla",)),
+    ("gdp", ("landsframleidsla", "gross", "domestic")),
+    ("turnout", ("participation", "kosningathatttaka")),
+    ("unemployed", ("unemployed", "atvinnulausir")),
     ("fiskafl", ("afli",)),
     ("fish catch", ("afli",)),
 )
@@ -340,6 +348,7 @@ def _hit(table: CatalogTable, score: float) -> TableHit:
         folders_en=table.folders_en,
         updated=table.updated,
         page_url=f"{PAGE_BASE}{folders[0]}/{'__'.join(folders)}/{file}",
+        page_url_en=f"{PAGE_BASE_EN}{folders[0]}/{'__'.join(folders)}/{file}",
         api_url=API_BASE + table.path,
         score=round(score, 2),
     )

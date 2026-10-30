@@ -220,3 +220,69 @@ def test_shifts_periods(code: str, steps: int, expected: str) -> None:
 def test_rejects_shifting_unknown_period_format() -> None:
     with pytest.raises(ValueError, match="Cannot shift"):
         shift_period("2026Q3", -1)
+
+
+def test_answers_in_english_with_official_labels() -> None:
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata("cpi")),
+        patch("talnaspor.answer.get_data", return_value=read("cpi_2026m09.json")),
+    ):
+        result = answer("cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_A"}, "en")
+
+    assert result.text == (
+        "Consumer price index, annual change in September 2026: 5.9%. "
+        "Source: Statistics Iceland, Consumer price index and changes, base 1988=100."
+    )
+    assert result.labels["Vísitala"] == "Consumer price index"
+    assert result.page_url == TABLES["cpi"].page_url_en
+
+
+def test_compares_in_english() -> None:
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata("population")),
+        patch("talnaspor.answer.get_data", return_value=read("population_2016_2026.json")),
+    ):
+        result = compare("population", {"Ár": LATEST, "Eining": "0"}, before_latest(10), "en")
+
+    assert result.text == (
+        "Population 1 January 2016: 326,036 people. "
+        "Population 1 January 2026: 394,324 people. "
+        "Change: +68,288 people (+20.9%). "
+        "Source: Statistics Iceland, Population - key figures 1703-2026."
+    )
+    assert result.labels == {"Eining": "Population 1 January"}
+
+
+def test_compares_percentages_in_percentage_points_in_english() -> None:
+    with (
+        patch("talnaspor.answer.get_metadata", return_value=metadata("cpi")),
+        patch("talnaspor.answer.get_data", return_value=read("cpi_2025m09_2026m09.json")),
+    ):
+        result = compare(
+            "cpi", {"Mánuður": "2026M09", "Vísitala": "CPI", "Liður": "change_A"}, "2025M09", "en"
+        )
+
+    assert result.difference_text == "+1.8 percentage points"
+
+
+@pytest.mark.parametrize(
+    ("value", "decimals", "unit", "expected"),
+    [(5.9, 1, "%", "5.9%"), (394324, 0, "people", "394,324 people"), (1234.5, 1, "", "1,234.5")],
+)
+def test_formats_values_in_english(value: float, decimals: int, unit: str, expected: str) -> None:
+    assert format_value(value, decimals, unit, "en") == expected
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"), [("2026M09", "September 2026"), ("2026Á2", "Q2 2026"), ("2026", "2026")]
+)
+def test_formats_periods_in_english(code: str, expected: str) -> None:
+    assert format_period(code, "en") == expected
+
+
+def test_every_measure_has_english_wording() -> None:
+    for table in TABLES.values():
+        assert table.title_en and table.page_url_en.startswith("https://px.hagstofa.is/pxen/")
+        for code, measure in table.measures.items():
+            assert measure.template_en and measure.unit_en
+            assert code in table.labels_en.get(table.measure_code, {})

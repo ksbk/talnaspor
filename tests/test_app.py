@@ -42,7 +42,7 @@ def test_answers_supported_question() -> None:
     assert body["answer"]["value"] == 394324
     assert body["answer"]["page_url"] == POPULATION.page_url
     assert isinstance(body["elapsed_ms"], int)
-    answer.assert_called_once_with("population", {"Ár": LATEST, "Eining": "0"})
+    answer.assert_called_once_with("population", {"Ár": LATEST, "Eining": "0"}, "is")
 
 
 def test_asks_for_clarification_without_retrieval() -> None:
@@ -198,3 +198,38 @@ def test_reports_failures_per_question_in_a_batch() -> None:
 )
 def test_rejects_empty_oversized_or_blank_batches(questions: list[str]) -> None:
     assert client.post("/ask/batch", json={"questions": questions}).status_code == 422
+
+
+def test_replies_in_english() -> None:
+    clarification = client.post("/ask", json={"question": "Verðbólga árið 2024", "lang": "en"})
+    assert clarification.json()["message"].startswith("Please name a month")
+
+    with patch("talnaspor.app.answer", side_effect=ValueError("Missing value")):
+        refusal = client.post("/ask", json={"question": "Hver er verðbólgan?", "lang": "en"})
+    assert refusal.json()["message"].startswith("I could not answer")
+
+    with patch("talnaspor.app.answer", side_effect=requests.ConnectionError("down")):
+        error = client.post("/ask", json={"question": "Hver er verðbólgan?", "lang": "en"})
+    assert error.status_code == 502
+    assert error.json()["message"].startswith("Statistics Iceland could not be reached")
+
+
+def test_passes_the_language_to_answers() -> None:
+    with patch("talnaspor.app.answer", return_value=POPULATION) as answer:
+        client.post("/ask", json={"question": "How many people live in Iceland?", "lang": "en"})
+        client.post("/ask/batch", json={"questions": ["Hvað búa margir á Íslandi?"], "lang": "en"})
+
+    assert [call.args[2] for call in answer.call_args_list] == ["en", "en"]
+
+
+def test_rejects_unsupported_languages() -> None:
+    response = client.post("/ask", json={"question": "Hver er verðbólgan?", "lang": "de"})
+
+    assert response.status_code == 422
+
+
+def test_serves_both_languages_in_the_page() -> None:
+    page = client.get("/").text
+
+    assert 'data-lang="is"' in page and 'data-lang="en"' in page
+    assert "JSON.stringify({ question, lang })" in page

@@ -21,7 +21,7 @@ def test_question_is_interpreted_as_recorded(item: dict[str, Any]) -> None:
 
     if item["expect"] == "clarification":
         assert isinstance(result, Clarification)
-        assert item["message"] in result.message
+        assert item["message"] in result.text(item.get("lang", "is"))
         return
     if item["expect"] in ("suggestions", "catalog"):
         # Not a curated topic: the expected table must be among those the planner tries.

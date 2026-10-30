@@ -3,6 +3,7 @@ from datetime import date
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from talnaspor.answer import Answer
 from talnaspor.catalog import TableHit
@@ -49,6 +50,7 @@ def hit(title: str = "Atvinnuþátttaka, atvinnuleysi 1991-2025") -> TableHit:
         folders=["Samfélag", "Vinnumarkaður"],
         updated="2026-02-19T09:00:00",
         page_url="https://px.hagstofa.is/pxis/pxweb/is/Samfelag/Samfelag__vinnumarkadur/VIN01002.px",
+        page_url_en="https://px.hagstofa.is/pxen/pxweb/en/Samfelag/Samfelag__vinnumarkadur/VIN01002.px",
         api_url=URL,
         score=10.0,
     )
@@ -215,3 +217,86 @@ def test_answer_payload_is_serializable() -> None:
 
     assert isinstance(result, Answer)
     assert json.loads(result.model_dump_json())["value_text"] == "4,3 (Fjöldi/hlutfall)"
+
+
+def english_metadata() -> PXMetadata:
+    return PXMetadata.model_validate(
+        {
+            "title": "Activity rate, unemployment 1991-2025",
+            "variables": [
+                {
+                    "code": "Year",
+                    "text": "Year",
+                    "values": ["0", "1"],
+                    "valueTexts": ["2024", "2025"],
+                },
+                {
+                    "code": "Sex",
+                    "text": "Sex",
+                    "values": ["0", "1", "2"],
+                    "valueTexts": ["Males and females", "Males", "Females"],
+                },
+                {
+                    "code": "Age",
+                    "text": "Age",
+                    "values": ["0", "1", "2"],
+                    "valueTexts": ["Total", "16-24 years", "16-74 years"],
+                },
+                {
+                    "code": "Unit",
+                    "text": "Unit",
+                    "values": ["0", "1"],
+                    "valueTexts": ["Unemployment", "Labour force"],
+                },
+            ],
+        }
+    )
+
+
+def run_english(question: str, data: str, english: PXMetadata | None) -> Answer | Choice | None:
+    def by_language(url: str) -> PXMetadata:
+        if "/pxen/" not in url:
+            return metadata()
+        if english is None:
+            raise requests.HTTPError("404 Not Found")
+        return english
+
+    with (
+        patch("talnaspor.planner._get_metadata", side_effect=by_language),
+        patch("talnaspor.planner.get_data", return_value=data),
+        patch("talnaspor.planner.get_units", return_value="Number/percent") as get_units,
+    ):
+        result = plan_answer(question, [hit()], today=date(2026, 10, 30), lang="en")
+    if isinstance(result, Answer):
+        assert get_units.call_args.args[3] == "en"
+    return result
+
+
+WOMEN_2025 = {
+    "Ár": ("1", "2025"),
+    "Kyn": ("2", "Konur"),
+    "Aldur": ("0", "Alls"),
+    "Eining": ("0", "Atvinnuleysi"),
+}
+
+
+def test_answers_in_english_with_the_tables_english_labels() -> None:
+    result = run_english("Unemployment females", response(WOMEN_2025, 4.3), english_metadata())
+
+    assert isinstance(result, Answer)
+    assert result.text == (
+        "Females, Unemployment (2025): 4.3 (Number/percent). "
+        "Source: Statistics Iceland, Activity rate, unemployment 1991-2025."
+    )
+    assert result.labels["Kyn"] == "Females"
+    assert result.dimension_labels["Kyn"] == "Sex"
+    assert result.page_url == hit().page_url_en
+
+
+def test_answers_with_icelandic_labels_when_a_table_has_no_english_version() -> None:
+    result = run_english("Atvinnuleysi kvenna", response(WOMEN_2025, 4.3), None)
+
+    assert isinstance(result, Answer)
+    assert result.labels["Kyn"] == "Konur"
+    assert result.text.endswith("(Labels are in Icelandic: this table has no English version.)")
+    assert result.page_url == hit().page_url

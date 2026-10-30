@@ -1,6 +1,6 @@
 {
   "as_of": "2026-10-30",
-  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate. Suggestions pass when the named table is among the tables suggested. Catalog answers pass when the table, period, every selected category and the value match.",
+  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate. Suggestions pass when the named table is among the tables suggested. Catalog answers pass when the table, period, every selected category and the value match. Questions marked lang 'en' get English replies; their catalog answers are checked for table, period and value.",
   "questions": [
     {
       "id": "cpi-01",
@@ -698,7 +698,7 @@
       "id": "clar-04",
       "question": "Hvernig er veðrið?",
       "expect": "clarification",
-      "message": "skildi ekki"
+      "message": "fann ekki svar"
     },
     {
       "id": "clar-05",
@@ -732,6 +732,174 @@
         }
       },
       "detail": "Unsupported value"
+    },
+    {
+      "id": "en-01",
+      "lang": "en",
+      "question": "What is inflation now?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "latest",
+          "Vísitala": "CPI",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M10"
+      ],
+      "values": [
+        5.9
+      ]
+    },
+    {
+      "id": "en-02",
+      "lang": "en",
+      "question": "Inflation excluding housing in March 2026",
+      "expect": "answer",
+      "interpretation": {
+        "table": "cpi",
+        "selections": {
+          "Mánuður": "2026M03",
+          "Vísitala": "CPILH",
+          "Liður": "change_A"
+        }
+      },
+      "periods": [
+        "2026M03"
+      ],
+      "values": [
+        4.9
+      ]
+    },
+    {
+      "id": "en-03",
+      "lang": "en",
+      "question": "How has Iceland's population changed?",
+      "expect": "comparison",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "latest",
+          "Eining": "0"
+        },
+        "compare_from": "latest-10"
+      },
+      "periods": [
+        "2016",
+        "2026"
+      ],
+      "values": [
+        326036,
+        394324
+      ]
+    },
+    {
+      "id": "en-04",
+      "lang": "en",
+      "question": "What was the population increase in 2024?",
+      "expect": "answer",
+      "interpretation": {
+        "table": "population",
+        "selections": {
+          "Ár": "2024",
+          "Eining": "2"
+        }
+      },
+      "periods": [
+        "2024"
+      ],
+      "values": [
+        5718
+      ]
+    },
+    {
+      "id": "en-05",
+      "lang": "en",
+      "question": "How many people are unemployed in Iceland?",
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/2_arsfjordungstolur/VIN01206.px",
+      "period": "2026Á2",
+      "labels": {
+        "Lengd atvinnuleitar": "Alls",
+        "Eining": "Fjöldi"
+      },
+      "values": [
+        15400
+      ],
+      "periods": [
+        "2026Á2"
+      ]
+    },
+    {
+      "id": "en-06",
+      "lang": "en",
+      "question": "What is the GDP of Iceland?",
+      "expect": "catalog",
+      "table_path": "Efnahagur/thjodhagsreikningar/landsframl/1_landsframleidsla/THJ01102.px",
+      "period": "2025",
+      "labels": {
+        "Skipting": "8. Verg landsframleiðsla"
+      },
+      "values": [
+        4941211
+      ],
+      "periods": [
+        "2025"
+      ]
+    },
+    {
+      "id": "en-07",
+      "lang": "en",
+      "question": "Unemployment among women 2025",
+      "expect": "catalog",
+      "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+      "period": "2025",
+      "labels": {
+        "Landsvæði": "Alls",
+        "Kyn": "Konur",
+        "Aldur": "Alls",
+        "Eining": "Atvinnuleysi"
+      },
+      "values": [
+        4.3
+      ],
+      "periods": [
+        "2025"
+      ]
+    },
+    {
+      "id": "en-08",
+      "lang": "en",
+      "question": "What is the gender pay gap?",
+      "expect": "catalog",
+      "table_path": "Samfelag/launogtekjur/1_laun/1_laun/VIN02010.px",
+      "period": "2024",
+      "labels": {
+        "Hópur": "Alls",
+        "Mæling": "Launamunur"
+      },
+      "values": [
+        10.4
+      ],
+      "periods": [
+        "2024"
+      ]
+    },
+    {
+      "id": "en-09",
+      "lang": "en",
+      "question": "What was inflation in 2024?",
+      "expect": "clarification",
+      "message": "Please name a month"
+    },
+    {
+      "id": "en-10",
+      "lang": "en",
+      "question": "Inflation and population in 2024",
+      "expect": "clarification",
+      "message": "one topic at a time"
     },
     {
       "id": "lim-01",
