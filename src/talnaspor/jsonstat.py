@@ -23,6 +23,7 @@ class _Dataset(BaseModel):
 
     class_: Literal["dataset"] = Field(alias="class")
     label: str
+    source: str | None = None
     id: list[str]
     size: list[int]
     dimension: dict[str, _Dimension]
@@ -57,6 +58,7 @@ class StatData(BaseModel):
     """Observations decoded from a JSON-stat2 dataset."""
 
     label: str
+    source: str | None
     dimension_labels: dict[str, str]
     decimals: int | None
     observations: list[Observation]
@@ -100,9 +102,10 @@ def decode_jsonstat(text: str, query: Mapping[str, object]) -> StatData:
     for flat_index, combination in enumerate(product(*ordered_categories)):
         cell = dict(zip(codes, combination, strict=True))
         value = dataset.value[flat_index]
+        status = _status(dataset.status, flat_index)
 
         if value is None:
-            raise ValueError(f"Missing value for {cell}")
+            raise ValueError(f"Missing value for {cell} (status {status!r})")
         if not math.isfinite(value):
             raise ValueError(f"Non-finite value for {cell}")
 
@@ -114,12 +117,13 @@ def decode_jsonstat(text: str, query: Mapping[str, object]) -> StatData:
                     code: dataset.dimension[code].category.label[category]
                     for code, category in cell.items()
                 },
-                status=_status(dataset.status, flat_index),
+                status=status,
             )
         )
 
     return StatData(
         label=dataset.label,
+        source=dataset.source,
         dimension_labels={code: dataset.dimension[code].label for code in codes},
         decimals=_decimals(dataset.extension),
         observations=observations,
