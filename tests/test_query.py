@@ -68,6 +68,19 @@ def test_rejects_missing_dimension(metadata: PXMetadata) -> None:
         )
 
 
+def test_rejects_unexpected_dimension(metadata: PXMetadata) -> None:
+    with pytest.raises(ValueError, match="every table dimension"):
+        build_query(
+            metadata,
+            {
+                "Month": "2026M09",
+                "Index": "CPI",
+                "Item": "change_A",
+                "Region": "Reykjavik",
+            },
+        )
+
+
 def test_rejects_invalid_month(metadata: PXMetadata) -> None:
     with pytest.raises(ValueError, match="Unsupported value"):
         build_query(

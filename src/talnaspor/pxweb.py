@@ -1,9 +1,10 @@
 """HTTP access to Statistics Iceland's PX-Web API."""
 
 import json
+from typing import Self
 
 import requests
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PXVariable(BaseModel):
@@ -24,6 +25,26 @@ class PXMetadata(BaseModel):
 
     title: str
     variables: list[PXVariable]
+
+    @model_validator(mode="after")
+    def check_invariants(self) -> Self:
+        """Reject metadata that could produce ambiguous queries or labels."""
+        if not self.variables:
+            raise ValueError("Metadata must define at least one variable")
+
+        codes = [variable.code for variable in self.variables]
+        if len(codes) != len(set(codes)):
+            raise ValueError("Variable codes must be unique")
+
+        for variable in self.variables:
+            if not variable.values:
+                raise ValueError(f"Variable {variable.code} has no values")
+            if len(variable.values) != len(set(variable.values)):
+                raise ValueError(f"Variable {variable.code} has duplicate values")
+            if variable.valueTexts and len(variable.valueTexts) != len(variable.values):
+                raise ValueError(f"Variable {variable.code} has mismatched value texts")
+
+        return self
 
 
 def get_metadata(table_url: str) -> PXMetadata:

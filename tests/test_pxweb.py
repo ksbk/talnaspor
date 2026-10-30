@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import ValidationError
 
-from talnaspor.pxweb import get_data, get_metadata
+from talnaspor.pxweb import PXMetadata, get_data, get_metadata
 
 
 def test_get_metadata_returns_validated_model() -> None:
@@ -46,6 +46,43 @@ def test_get_metadata_rejects_invalid_structure() -> None:
         pytest.raises(ValidationError),
     ):
         get_metadata("https://example.org/table.px")
+
+
+@pytest.mark.parametrize(
+    ("variables", "message"),
+    [
+        ([], "at least one variable"),
+        (
+            [
+                {"code": "Month", "text": "Month", "values": ["2026M09"]},
+                {"code": "Month", "text": "Month", "values": ["2026M08"]},
+            ],
+            "codes must be unique",
+        ),
+        ([{"code": "Month", "text": "Month", "values": []}], "has no values"),
+        (
+            [{"code": "Month", "text": "Month", "values": ["2026M09", "2026M09"]}],
+            "duplicate values",
+        ),
+        (
+            [
+                {
+                    "code": "Month",
+                    "text": "Month",
+                    "values": ["2026M08", "2026M09"],
+                    "valueTexts": ["August 2026"],
+                }
+            ],
+            "mismatched value texts",
+        ),
+    ],
+)
+def test_metadata_rejects_inconsistent_variables(
+    variables: list[dict[str, object]],
+    message: str,
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        PXMetadata.model_validate({"title": "Consumer Price Index", "variables": variables})
 
 
 def test_get_data_submits_query() -> None:
