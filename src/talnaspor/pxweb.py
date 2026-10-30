@@ -2,6 +2,8 @@
 
 import json
 import re
+import time
+from typing import Any
 
 import requests
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -47,10 +49,50 @@ class PXMetadata(BaseModel):
         return self
 
 
+# Statistics Iceland limits requests per client and answers HTTP 429 when they come too
+# fast, sometimes for a minute or more. Identical requests are therefore served from a
+# short cache (figures change at most daily), and a 429 is retried once after a pause.
+CACHE_SECONDS = 600
+MAX_RETRY_WAIT = 3.0
+_cache: dict[tuple[str, str, str | None], tuple[float, requests.Response]] = {}
+
+
+class RateLimited(requests.HTTPError):
+    """Statistics Iceland refused the request because too many were sent (HTTP 429)."""
+
+
+def clear_cache() -> None:
+    _cache.clear()
+
+
+def _send(method: str, url: str, **kwargs: Any) -> requests.Response:
+    key = (method, url, kwargs.get("data"))
+    cached = _cache.get(key)
+    if cached and time.monotonic() - cached[0] < CACHE_SECONDS:
+        return cached[1]
+
+    send = requests.get if method == "GET" else requests.post
+    response = send(url, **kwargs)
+    if response.status_code == 429:
+        time.sleep(_retry_wait(response))
+        response = send(url, **kwargs)
+        if response.status_code == 429:
+            raise RateLimited(f"429 Too Many Requests for url: {url}", response=response)
+    response.raise_for_status()
+    _cache[key] = (time.monotonic(), response)
+    return response
+
+
+def _retry_wait(response: requests.Response) -> float:
+    try:
+        return min(float(response.headers.get("Retry-After", 1)), MAX_RETRY_WAIT)
+    except (TypeError, ValueError):
+        return 1.0
+
+
 def get_metadata(table_url: str) -> PXMetadata:
     """Retrieve and validate metadata for a PX-Web table."""
-    response = requests.get(table_url, timeout=15)
-    response.raise_for_status()
+    response = _send("GET", table_url, timeout=15)
 
     return PXMetadata.model_validate_json(response.text)
 
@@ -60,13 +102,13 @@ def get_data(
     query: dict[str, object],
 ) -> str:
     """Submit a PX-Web query and return the JSON response text."""
-    response = requests.post(
+    response = _send(
+        "POST",
         table_url,
         data=json.dumps(query),
         headers={"Content-Type": "application/json"},
         timeout=20,
     )
-    response.raise_for_status()
     return response.text
 
 
@@ -80,13 +122,13 @@ def get_units(
     dimension. A unit specific to one of the given category labels takes precedence.
     English units are the UNITS[en] lines, matched against English labels.
     """
-    response = requests.post(
+    response = _send(
+        "POST",
         table_url,
         data=json.dumps({**query, "response": {"format": "px"}}),
         headers={"Content-Type": "application/json"},
         timeout=20,
     )
-    response.raise_for_status()
     codepage = re.search(rb'CODEPAGE="([^"]+)"', response.content)
     text = response.content.decode(codepage[1].decode() if codepage else "utf-8", "replace")
 

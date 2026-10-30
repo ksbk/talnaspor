@@ -134,6 +134,10 @@ STOPWORDS = frozenset(
         "muninn",
         "difference",
         "people",
+        # "live in" means reside; it matched "Live expectancy", a title's typo for "Life".
+        "live",
+        "lives",
+        "living",
         "persons",
         "among",
         "like",

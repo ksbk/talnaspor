@@ -9,7 +9,7 @@ from talnaspor.answer import LATEST, Answer
 from talnaspor.app import app
 from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import Choice
-from talnaspor.pxweb import PXMetadata
+from talnaspor.pxweb import PXMetadata, RateLimited
 from talnaspor.validation import UnavailableValue
 
 client = TestClient(app)
@@ -277,3 +277,48 @@ def test_answers_general_knowledge_questions_with_not_found(question: str, lang:
     assert body["status"] == "clarification"
     assert body["tables"] is None
     search.assert_not_called()
+
+
+def test_says_when_statistics_iceland_is_limiting_requests() -> None:
+    with patch("talnaspor.app.answer", side_effect=RateLimited("429")):
+        response = client.post("/ask", json={"question": "Hver er verðbólgan núna?"})
+
+    assert response.status_code == 503
+    assert response.json()["reason"] == "rate_limited"
+    assert response.json()["message"].startswith("Hagstofa Íslands takmarkar")
+
+
+def test_reports_a_rate_limit_met_while_planning() -> None:
+    with patch("talnaspor.app.plan_answer", side_effect=RateLimited("429")):
+        response = client.post(
+            "/ask", json={"question": "Hversu margir eru atvinnulausir?", "lang": "en"}
+        )
+
+    assert response.status_code == 503
+    assert response.json()["message"].startswith("Statistics Iceland is limiting requests")
+
+
+@pytest.mark.parametrize(
+    ("question", "lang"),
+    [
+        ("Hvað eru margir íbúar í Reykjavík?", "is"),
+        ("What was the population of Reykjavik in 2020?", "en"),
+        ("Hver var verðbólgan á matvörum í september 2026?", "is"),
+        ("What is the inflation rate in Norway?", "en"),
+        ("Hver er meðalaldur íbúa á Íslandi?", "is"),
+        ("Hverjar eru meðaltekjur íbúa?", "is"),
+    ],
+)
+def test_never_answers_qualified_questions_with_national_headline_figures(
+    question: str, lang: str
+) -> None:
+    with (
+        patch("talnaspor.app.answer") as answer,
+        patch("talnaspor.app.compare") as compare,
+        patch("talnaspor.app.plan_answer", return_value=None),
+    ):
+        body = client.post("/ask", json={"question": question, "lang": lang}).json()
+
+    answer.assert_not_called()
+    compare.assert_not_called()
+    assert body["status"] in ("suggestions", "clarification")

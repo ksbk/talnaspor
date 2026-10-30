@@ -45,6 +45,12 @@ SUPPORTED_EN = (
     "name a period if you like."
 )
 
+NOT_FOUND = {
+    "is": f"Ég fann ekki svar við þessari spurningu í gögnum Hagstofu Íslands. {SUPPORTED}",
+    "en": f"I could not find an answer to this question in Statistics Iceland's data. "
+    f"{SUPPORTED_EN}",
+}
+
 MONTHS = {
     "januar": 1,
     "january": 1,
@@ -152,12 +158,7 @@ def interpret(question: str) -> Interpretation | Clarification:
             f"Please ask about one topic at a time. {SUPPORTED_EN}",
         )
     if not is_cpi and not is_population:
-        return Clarification(
-            f"Ég fann ekki svar við þessari spurningu í gögnum Hagstofu Íslands. {SUPPORTED}",
-            f"I could not find an answer to this question in Statistics Iceland's data. "
-            f"{SUPPORTED_EN}",
-            recognized=False,
-        )
+        return Clarification(NOT_FOUND["is"], NOT_FOUND["en"], recognized=False)
 
     text = TWELVE_MONTHS.sub("12 manada", text)
     last_year = bool(LAST_YEAR.search(text))
@@ -343,3 +344,33 @@ def _has_any(text: str, words: tuple[str, ...]) -> bool:
 
 def _years(text: str) -> list[str]:
     return sorted(set(re.findall(YEAR, text)))
+
+
+# Word stems the curated CPI and population answers account for: their topics, measures,
+# periods and comparisons. A question with any other content word, such as a place
+# ("Reykjavík"), a sub-index ("matvörum"), a country ("Norway") or another measure
+# ("meðalaldur"), asks about something those national headline figures do not answer.
+CURATED_STEMS = (
+    # Consumer price index and its measures.
+    "verdbolg", "inflation", "neysluverd", "consumer", "price", "cpi", "verdlag", "visital",
+    "visitol", "index", "manadarbreyt", "arsbreyt", "monthly", "month", "annual", "haekk",
+    "laekk", "husnaed", "housing", "exclud", "without", "milli",
+    # Population and its measures.
+    "mannfjold", "ibua", "ibui", "ibuum", "populat", "inhabit", "people", "bua", "bjugg",
+    "bjo", "fjolg", "fjold", "growth", "increas", "grew", "hlutfall", "prosent", "percent",
+    "rate", "adflutt", "brottflutt", "migrat", "immigrat", "net", "faedd", "umfram", "dana",
+    "natural", "landsins", "landinu", "thjodin", "thjodar", "number", "size", "big", "stor",
+    # Periods, spans and comparisons.
+    "breyst", "breytt", "breyting", "throun", "throa", "thrad", "aukist", "vaxid", "samanburd",
+    "chang", "trend", "compar", "grown", "since", "fra", "til", "sidan", "nuna", "now",
+    "current", "today", "dag", "latest", "nyjust", "arin", "arid", "arum", "year", "manud",
+    "manad", "sidust", "sidast", "last", "past", "previous", "fyrra", "ago", "between", "and",
+    "than", "faster", "slower", "rise", "rose", "fell", "fall", "hvenaer",
+)  # fmt: skip
+
+
+def curated_terms_cover(words: set[str]) -> bool:
+    """Whether every content word of a question is one the curated answers account for."""
+    known = (*CURATED_STEMS, *MONTH_WORDS, *NUMBERS)
+    # "ár" and "ára" (year, years) are too short to be prefixes; "may" is a month.
+    return all(word in {"ar", "ara", "may"} or word.startswith(known) for word in words)

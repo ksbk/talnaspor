@@ -10,10 +10,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from talnaspor.answer import Answer, Comparison, Lang, answer, compare, format_period
-from talnaspor.catalog import TableHit, search, topic_word
-from talnaspor.interpret import Clarification, interpret, normalize
+from talnaspor.catalog import TableHit, question_words, search, topic_word
+from talnaspor.interpret import (
+    NOT_FOUND,
+    Clarification,
+    Interpretation,
+    curated_terms_cover,
+    interpret,
+    normalize,
+)
 from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import GENERAL_KNOWLEDGE, Choice, plan_answer
+from talnaspor.pxweb import RateLimited
 from talnaspor.validation import UnavailableValue
 
 app = FastAPI(title="Talnaspor")
@@ -27,6 +35,10 @@ MESSAGES: dict[str, dict[str, str]] = {
             "fjalla líklega um efnið:"
         ),
         "error": "Ekki náðist samband við Hagstofu Íslands. Reyndu aftur síðar.",
+        "rate_limited": (
+            "Hagstofa Íslands takmarkar fjölda fyrirspurna í augnablikinu. "
+            "Reyndu aftur eftir um það bil mínútu."
+        ),
         "refusal": "Ekki tókst að svara spurningunni með staðfestum gögnum frá Hagstofu Íslands.",
         "unavailable": (
             "Engin tala er til fyrir {requested} í töflu Hagstofu Íslands. "
@@ -41,6 +53,9 @@ MESSAGES: dict[str, dict[str, str]] = {
             "probably cover it:"
         ),
         "error": "Statistics Iceland could not be reached. Please try again later.",
+        "rate_limited": (
+            "Statistics Iceland is limiting requests right now. Please try again in about a minute."
+        ),
         "refusal": "I could not answer this question with verified data from Statistics Iceland.",
         "unavailable": (
             "Statistics Iceland's table has no figure for {requested}. It covers {first} to {last}."
@@ -81,7 +96,7 @@ class AskResponse(BaseModel):
     tables: list[TableHit] | None = None
     # Why a refusal happened: the period or category is outside the table, the figure
     # is not published, or the data could not be verified for another reason.
-    reason: Literal["unavailable", "unpublished", "unverified"] | None = None
+    reason: Literal["unavailable", "unpublished", "unverified", "rate_limited"] | None = None
     detail: str | None = None
     elapsed_ms: int
 
@@ -121,7 +136,8 @@ def ask(request: AskRequest) -> AskResponse | JSONResponse:
     """Answer a statistical question from verified PX-Web data, or explain why not."""
     response = respond_to(request.question, request.lang)
     if response.status == "error":
-        return JSONResponse(status_code=502, content=response.model_dump(mode="json"))
+        status_code = 503 if response.reason == "rate_limited" else 502
+        return JSONResponse(status_code=status_code, content=response.model_dump(mode="json"))
     return response
 
 
@@ -151,6 +167,13 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
 
     messages = MESSAGES[lang]
     interpretation = interpret(question)
+    if isinstance(interpretation, Interpretation) and not curated_terms_cover(
+        question_words(question)
+    ):
+        # The question names something the national headline figures do not answer, such
+        # as a municipality or a sub-index, so it is treated as any other topic: the
+        # catalog planner answers only if a table settles every word, or says why not.
+        interpretation = Clarification(NOT_FOUND["is"], NOT_FOUND["en"], recognized=False)
     if isinstance(interpretation, Clarification):
         # General-knowledge questions ("capital of Iceland") are not statistical, so they
         # get the plain "not found" reply rather than loosely related tables.
@@ -160,7 +183,15 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         tables = search(question, limit=10) if searchable else []
         if not tables:
             return respond(status="clarification", message=interpretation.text(lang))
-        planned = plan_answer(question, candidates(question, tables), attempts=12, lang=lang)
+        try:
+            planned = plan_answer(question, candidates(question, tables), attempts=12, lang=lang)
+        except RateLimited as error:
+            return respond(
+                status="error",
+                reason="rate_limited",
+                message=messages["rate_limited"],
+                detail=str(error),
+            )
         if isinstance(planned, Answer):
             others = [t for t in tables if t.api_url != planned.api_url][:4]
             return respond(status="answer", message=planned.text, answer=planned, tables=others)
@@ -190,6 +221,14 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
                 status="answer", message=comparison.text, comparison=comparison, **context
             )
         result = answer(interpretation.table, interpretation.selections, lang)
+    except RateLimited as error:
+        return respond(
+            status="error",
+            reason="rate_limited",
+            message=messages["rate_limited"],
+            detail=str(error),
+            **context,
+        )
     except requests.RequestException as error:
         return respond(
             status="error",

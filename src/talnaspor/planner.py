@@ -34,7 +34,14 @@ from talnaspor.catalog import (
 )
 from talnaspor.interpret import MONTH_WORDS, Clarification, month_periods, normalize
 from talnaspor.jsonstat import decode_jsonstat
-from talnaspor.pxweb import PXMetadata, PXVariable, get_data, get_metadata, get_units
+from talnaspor.pxweb import (
+    PXMetadata,
+    PXVariable,
+    RateLimited,
+    get_data,
+    get_metadata,
+    get_units,
+)
 from talnaspor.query import build_query
 
 TIME_VALUE = re.compile(r"\d{4}([MÁQK]\d{1,2})?")
@@ -196,6 +203,9 @@ def plan_answer(
             ):
                 continue
             unit = get_units(hit.api_url, query, list(labels.values()), lang)
+        except RateLimited:
+            # Not a problem with this table: every further request would be refused too.
+            raise
         except (requests.RequestException, ValueError):
             continue
 

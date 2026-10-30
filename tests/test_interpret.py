@@ -1,7 +1,14 @@
 import pytest
 
 from talnaspor.answer import LATEST, before_latest
-from talnaspor.interpret import Clarification, Interpretation, interpret, normalize
+from talnaspor.catalog import question_words
+from talnaspor.interpret import (
+    Clarification,
+    Interpretation,
+    curated_terms_cover,
+    interpret,
+    normalize,
+)
 
 
 def test_normalizes_icelandic_letters() -> None:
@@ -291,3 +298,20 @@ def test_keeps_years_outside_the_usual_range() -> None:
     assert interpret("What was the population in 1650?") == Interpretation(
         "population", {"Ár": "1650", "Eining": "0"}
     )
+
+
+@pytest.mark.parametrize(
+    ("question", "covered"),
+    [
+        ("Hve mikið hækkaði verðlag á milli ára í júlí 2026?", True),
+        ("What was inflation in May 2025?", True),
+        ("How big is Iceland's population today?", True),
+        ("Íbúafjöldi landsins 2010", True),
+        ("Hvað eru margir íbúar í Reykjavík?", False),
+        ("Hver var verðbólgan á matvörum?", False),
+        ("What is the inflation rate in Norway?", False),
+        ("Hver er meðalaldur íbúa á Íslandi?", False),
+    ],
+)
+def test_knows_which_words_the_curated_answers_cover(question: str, covered: bool) -> None:
+    assert curated_terms_cover(question_words(question)) is covered

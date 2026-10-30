@@ -5,7 +5,7 @@ import pytest
 import requests
 from pydantic import ValidationError
 
-from talnaspor.pxweb import PXMetadata, get_data, get_metadata
+from talnaspor.pxweb import MAX_RETRY_WAIT, PXMetadata, RateLimited, get_data, get_metadata
 
 
 def test_get_metadata_returns_validated_model() -> None:
@@ -128,3 +128,40 @@ def test_get_data_propagates_http_error() -> None:
         pytest.raises(requests.HTTPError, match="400"),
     ):
         get_data("https://example.org/table.px", {"query": []})
+
+
+def limited() -> Mock:
+    response = Mock(status_code=429, headers={"Retry-After": "10"})
+    return response
+
+
+def test_retries_once_after_a_rate_limit() -> None:
+    ok = Mock(status_code=200, text='{"value":[5.9]}')
+    with (
+        patch("talnaspor.pxweb.requests.post", side_effect=[limited(), ok]) as post,
+        patch("talnaspor.pxweb.time.sleep") as sleep,
+    ):
+        result = get_data("https://example.org/table.px", {"query": []})
+
+    assert result == '{"value":[5.9]}'
+    assert post.call_count == 2
+    sleep.assert_called_once_with(MAX_RETRY_WAIT)
+
+
+def test_reports_a_persistent_rate_limit() -> None:
+    with (
+        patch("talnaspor.pxweb.requests.get", side_effect=[limited(), limited()]),
+        patch("talnaspor.pxweb.time.sleep"),
+        pytest.raises(RateLimited),
+    ):
+        get_metadata("https://example.org/table.px")
+
+
+def test_serves_identical_requests_from_the_cache() -> None:
+    ok = Mock(status_code=200, text='{"value":[5.9]}')
+    with patch("talnaspor.pxweb.requests.post", return_value=ok) as post:
+        get_data("https://example.org/table.px", {"query": []})
+        get_data("https://example.org/table.px", {"query": []})
+        get_data("https://example.org/table.px", {"query": [{"code": "Ár"}]})
+
+    assert post.call_count == 2

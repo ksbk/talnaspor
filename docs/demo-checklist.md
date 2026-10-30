@@ -20,7 +20,10 @@ Ten minutes per team. Print this page.
 - [ ] Wi-Fi reaches Statistics Iceland (expect `200`):
       `curl -s -o /dev/null -w "%{http_code}\n" https://px.hagstofa.is/pxis/api/v1/is/`
 - [ ] Phone hotspot ready as a fallback network.
-- [ ] Update and check: `git pull && make sync && make check` (expect 309 tests passed).
+- [ ] Update and check: `git pull && make sync && make check` (expect 329 tests passed).
+      `make check` makes no requests to Statistics Iceland.
+- [ ] **Do not run `make evaluate` or any bulk testing on the demo day.** It sends hundreds
+      of requests and can get the network address blocked for 10 minutes or more.
 - [ ] Start: `make run`, open <http://127.0.0.1:8000>, select **ÍS**.
 - [ ] **Warm up within 10 minutes of presenting:** ask the demo questions once. Table
       metadata is cached for 10 minutes, so answers are fastest right after this.
@@ -36,10 +39,12 @@ Ten minutes per team. Print this page.
 | 7–9.5 | 6–7 | Evidence, limitations, next steps |
 | 9.5–10 | | Thank you; repository link |
 
-## Live demo: pace it, about one question every 15 seconds
+## Live demo: pace it, about one question every 30 seconds
 
-Statistics Iceland allows about 30 requests per 10 seconds, and one catalog question can
-use 10–20 of them. Results below are as of 30 October 2026; a “latest” figure changes only
+Statistics Iceland limits requests per network address. In testing it refused requests
+(HTTP 429) after about 8 in 25 seconds, and after heavy use it blocked for 10 minutes or
+more. One catalog question can make 10–20 requests. Talnaspor caches identical requests
+for 10 minutes and retries once, so repeated demo questions are safe. Results below are as of 30 October 2026; a “latest” figure changes only
 when Statistics Iceland publishes new data, and the card always shows the period.
 
 | # | Lang | Type or click | Expect | Shows |
@@ -61,7 +66,7 @@ Spare if time allows: “Hvernig hefur verðbólgan þróast síðustu tíu ári
 | Problem | Do this |
 |---|---|
 | Red card “Ekki náðist samband við Hagstofu” / “could not be reached” | Switch to the phone hotspot and ask again. Still failing: play the backup video. |
-| An answer is slow or fails after several quick questions | Rate limit: wait 10–15 seconds and ask again. Say so: it is Statistics Iceland’s limit. |
+| “Hagstofa Íslands takmarkar fjölda fyrirspurna” / “is limiting requests” | Rate limit. Ask a question you already asked (served from the cache), or wait a minute. Still blocked: play the backup video. Say so: it is Statistics Iceland’s limit. |
 | The page shows the wrong language | Click **ÍS** or **EN**; the choice is remembered. |
 | The page looks out of date | Hard reload: Cmd+Shift+R. |
 | Port 8000 is busy | `uv run --locked uvicorn talnaspor.app:app --port 8001` and open port 8001. |

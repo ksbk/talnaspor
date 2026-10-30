@@ -55,3 +55,9 @@ def test_prefers_current_tables_over_discontinued_ones() -> None:
 )
 def test_matches_inflected_word_forms(term: str, word: str, quality: float) -> None:
     assert _match(term, word) == quality
+
+
+def test_does_not_match_life_expectancy_for_where_people_live() -> None:
+    hits = search("How many women live in Iceland?")
+
+    assert not any("expectancy" in (hit.title_en or "").lower() for hit in hits)
