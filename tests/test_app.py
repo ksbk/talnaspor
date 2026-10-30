@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 import requests
 from fastapi.testclient import TestClient
 
@@ -163,3 +164,37 @@ def test_answers_change_over_time_end_to_end() -> None:
     assert body["comparison"]["difference_text"] == "+68.288 íbúar"
     assert body["comparison"]["relative_change_text"] == "+20,9%"
     assert body["message"].startswith("Mannfjöldi 1. janúar 2016: 326.036 íbúar.")
+
+
+def test_answers_several_questions_in_order() -> None:
+    questions = ["Hvað búa margir á Íslandi?", "Verðbólga árið 2024", "Hvernig er veðrið?"]
+    with patch("talnaspor.app.answer", return_value=POPULATION):
+        response = client.post("/ask/batch", json={"questions": questions})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["question"] for item in body["answers"]] == questions
+    assert [item["status"] for item in body["answers"]] == [
+        "answer",
+        "clarification",
+        "clarification",
+    ]
+    assert body["answers"][0]["answer"]["value"] == 394324
+    assert isinstance(body["elapsed_ms"], int)
+
+
+def test_reports_failures_per_question_in_a_batch() -> None:
+    with patch("talnaspor.app.answer", side_effect=requests.ConnectionError("timed out")):
+        response = client.post(
+            "/ask/batch", json={"questions": ["Hver er verðbólgan?", "Verðbólga árið 2024"]}
+        )
+
+    assert response.status_code == 200
+    assert [item["status"] for item in response.json()["answers"]] == ["error", "clarification"]
+
+
+@pytest.mark.parametrize(
+    "questions", [[], ["Hver er verðbólgan?"] * 11, ["Hver er verðbólgan?", ""]]
+)
+def test_rejects_empty_oversized_or_blank_batches(questions: list[str]) -> None:
+    assert client.post("/ask/batch", json={"questions": questions}).status_code == 422

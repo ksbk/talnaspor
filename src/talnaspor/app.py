@@ -2,7 +2,7 @@
 
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import requests
 from fastapi import FastAPI
@@ -24,8 +24,18 @@ SUGGESTIONS = (
 )
 
 
+Question = Annotated[str, Field(min_length=1, max_length=500)]
+
+# Questions are answered one after another, which keeps a batch within PX-Web's rate limit.
+MAX_BATCH = 10
+
+
 class AskRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=500)
+    question: Question
+
+
+class AskBatchRequest(BaseModel):
+    questions: list[Question] = Field(min_length=1, max_length=MAX_BATCH)
 
 
 class AskResponse(BaseModel):
@@ -39,6 +49,11 @@ class AskResponse(BaseModel):
     comparison: Comparison | None = None
     tables: list[TableHit] | None = None
     detail: str | None = None
+    elapsed_ms: int
+
+
+class AskBatchResponse(BaseModel):
+    answers: list[AskResponse]
     elapsed_ms: int
 
 
@@ -69,20 +84,42 @@ def index() -> FileResponse:
 @app.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest) -> AskResponse | JSONResponse:
     """Answer a statistical question from verified PX-Web data, or explain why not."""
+    response = respond_to(request.question)
+    if response.status == "error":
+        return JSONResponse(status_code=502, content=response.model_dump(mode="json"))
+    return response
+
+
+@app.post("/ask/batch", response_model=AskBatchResponse)
+def ask_batch(request: AskBatchRequest) -> AskBatchResponse:
+    """Answer several questions in one call, each exactly as /ask would, in order.
+
+    Each answer carries its own status, so one question that cannot be answered, or a
+    failure to reach Statistics Iceland, does not fail the others.
+    """
+    started = time.perf_counter()
+    answers = [respond_to(question) for question in request.questions]
+    return AskBatchResponse(
+        answers=answers, elapsed_ms=round((time.perf_counter() - started) * 1000)
+    )
+
+
+def respond_to(question: str) -> AskResponse:
+    """Answer one question, reporting failures in the response status."""
     started = time.perf_counter()
 
     def respond(**fields: object) -> AskResponse:
         elapsed_ms = round((time.perf_counter() - started) * 1000)
         return AskResponse.model_validate(
-            {"question": request.question, "elapsed_ms": elapsed_ms, **fields}
+            {"question": question, "elapsed_ms": elapsed_ms, **fields}
         )
 
-    interpretation = interpret(request.question)
+    interpretation = interpret(question)
     if isinstance(interpretation, Clarification):
-        tables = [] if interpretation.recognized else search(request.question, limit=10)
+        tables = [] if interpretation.recognized else search(question, limit=10)
         if not tables:
             return respond(status="clarification", message=interpretation.message)
-        planned = plan_answer(request.question, candidates(request.question, tables))
+        planned = plan_answer(question, candidates(question, tables))
         if isinstance(planned, Answer):
             others = [t for t in tables if t.api_url != planned.api_url][:4]
             return respond(status="answer", message=planned.text, answer=planned, tables=others)
@@ -110,13 +147,12 @@ def ask(request: AskRequest) -> AskResponse | JSONResponse:
             )
         result = answer(interpretation.table, interpretation.selections)
     except requests.RequestException as error:
-        body = respond(
+        return respond(
             status="error",
             message="Ekki náðist samband við Hagstofu Íslands. Reyndu aftur síðar.",
             detail=str(error),
             **context,
         )
-        return JSONResponse(status_code=502, content=body.model_dump(mode="json"))
     except ValueError as error:
         return respond(
             status="refusal",
