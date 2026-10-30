@@ -9,7 +9,7 @@ PYTEST_ARGS ?=
 MYPY_ARGS ?=
 RUN_DEV = $(UV) run --locked --group dev
 
-.PHONY: help sync run evaluate lock lock-check lint format format-check typecheck test check build clean clean-venv distclean
+.PHONY: help sync run evaluate requirements requirements-check lock lock-check lint format format-check typecheck test check build clean clean-venv distclean
 
 help: ## Show available commands (the default).
 	@awk 'BEGIN { printf "Usage: make <target>\n\n" } /^[a-zA-Z_-]+:.*## / { split($$0, parts, "## "); sub(/:.*/, "", parts[1]); printf "  %-16s %s\n", parts[1], parts[2] }' $(MAKEFILE_LIST)
@@ -29,6 +29,15 @@ lock: ## Update uv.lock after changing dependencies.
 lock-check: ## Check that uv.lock matches pyproject.toml.
 	$(UV) lock --check
 
+EXPORT = $(UV) export --locked --no-dev --no-hashes --no-emit-project --format requirements-txt
+
+requirements: ## Regenerate requirements.txt (pinned, for pip) from uv.lock.
+	$(EXPORT) > requirements.txt
+
+requirements-check: ## Check that requirements.txt matches uv.lock.
+	$(EXPORT) | diff -q - requirements.txt >/dev/null || \
+		{ echo "requirements.txt is out of date: run make requirements"; exit 1; }
+
 lint: ## Check Python code with Ruff.
 	$(RUN_DEV) ruff check . $(RUFF_ARGS)
 
@@ -44,7 +53,7 @@ typecheck: ## Check source and test types with mypy.
 test: ## Run pytest (pass options with PYTEST_ARGS='...').
 	$(RUN_DEV) pytest $(PYTEST_ARGS)
 
-check: lock-check lint format-check typecheck test ## Run dependency, lint, formatting, type, and test checks.
+check: lock-check requirements-check lint format-check typecheck test ## Run dependency, lint, formatting, type, and test checks.
 
 build: ## Build source and wheel distributions in dist/.
 	$(UV) build

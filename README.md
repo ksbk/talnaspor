@@ -24,29 +24,30 @@ page. English answers use Statistics Iceland's own English labels and table titl
 
 ## Quick start
 
-Requires Python 3.10 or later and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.10 or later and network access to px.hagstofa.is.
+
+```sh
+git clone https://github.com/ksbk/talnaspor.git
+cd talnaspor
+```
+
+**With pip** (the organizers' Track 2 setup):
+
+```sh
+python3 -m venv venv
+source venv/bin/activate           # Windows: venv\Scripts\activate
+pip install -r requirements.txt    # Exact versions, exported from uv.lock
+uvicorn app:app
+```
+
+**With [uv](https://docs.astral.sh/uv/)** and make:
 
 ```sh
 make sync    # Install exact dependency versions from uv.lock
 make run     # Start the server
 ```
 
-Open <http://127.0.0.1:8000> and ask a question, or click one of the examples.
-
-Without `make`, run `uv sync --locked` and then
-`uv run --locked uvicorn talnaspor.app:app`.
-
-Without uv, use a virtual environment and pip:
-
-```sh
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install .
-uvicorn talnaspor.app:app
-```
-
-pip resolves dependency versions itself; uv installs the exact versions tested, from
-`uv.lock`.
+Then open <http://127.0.0.1:8000> and ask a question, or click one of the examples.
 
 ## What you can ask
 
@@ -153,7 +154,7 @@ Interactive API documentation is at <http://127.0.0.1:8000/docs>.
 
 ## Evaluation
 
-[evaluation/questions.json](evaluation/questions.json) holds 62 realistic questions, 12 of
+[evaluation/questions.json](evaluation/questions.json) holds 65 realistic questions, 13 of
 them answered in English. Each
 expected figure was fetched by
 [scripts/fetch_expected.py](scripts/fetch_expected.py), which shares no code with
@@ -161,15 +162,18 @@ Talnaspor's table configuration, query builder or decoder, and uses a different 
 format.
 
 ```sh
-make evaluate    # Ask every question live and write evaluation/results.md
+make evaluate    # Ask every question live and write evaluation/results.md (slow)
 ```
 
-Latest run: **61 pass, 1 documented limitation, 0 failures**. This includes 14 answers
+Latest full run, of the first 62 questions: **61 pass, 1 documented limitation, 0
+failures**. The three added since (Reykjavík population and average age, which must not
+get national headline figures) were each verified live against independently fetched
+values. This includes 14 answers
 from catalog tables, each checked for the table, period and figure (and, in Icelandic,
 every selected value), 4 refusals, and 3 questions where the expected table must be
 among those suggested. See
-[evaluation/results.md](evaluation/results.md). The script pauses between questions to stay
-within Statistics Iceland's request limit.
+[evaluation/results.md](evaluation/results.md). The script pauses between questions, but
+Statistics Iceland's request limit can still interrupt it; run it well before a demo.
 [evaluation/heldout.json](evaluation/heldout.json) holds 16 further questions, never used to
 tune the rules, for comparing interpreters. Every question's interpretation is also
 checked offline by `make check`.
