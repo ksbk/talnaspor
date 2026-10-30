@@ -18,3 +18,4 @@ coverage.json
 .pyre/
 .tox/
 .nox/
+.vscode/
