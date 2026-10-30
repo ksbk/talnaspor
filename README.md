@@ -21,7 +21,7 @@ templates, so a number can never be invented.
 
 ## Quick start
 
-Requires Python 3.11 or later and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.10 or later and [uv](https://docs.astral.sh/uv/).
 
 ```sh
 make sync    # Install exact dependency versions from uv.lock
@@ -32,6 +32,18 @@ Open <http://127.0.0.1:8000> and ask a question, or click one of the examples.
 
 Without `make`, run `uv sync --locked` and then
 `uv run --locked uvicorn talnaspor.app:app`.
+
+Without uv, use a virtual environment and pip:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install .
+uvicorn talnaspor.app:app
+```
+
+pip resolves dependency versions itself; uv installs the exact versions tested, from
+`uv.lock`.
 
 ## What you can ask
 
@@ -106,7 +118,7 @@ anyone can check the answer at the source.
 
 ### API
 
-`POST /ask` takes `{"question": "..."}` and returns one of four statuses:
+`POST /ask` takes `{"question": "..."}` and returns one of five statuses:
 
 | `status` | Meaning | HTTP |
 |---|---|---|
@@ -119,6 +131,15 @@ anyone can check the answer at the source.
 ```sh
 curl -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
      -d '{"question": "Hver er verðbólgan núna?"}'
+```
+
+`POST /ask/batch` takes up to 10 questions, `{"questions": ["...", "..."]}`, and returns
+`{"answers": [...]}`: one `/ask` response per question, in order. Each has its own
+status, so a question that fails does not fail the others, and the call returns 200.
+
+```sh
+curl -X POST http://127.0.0.1:8000/ask/batch -H 'Content-Type: application/json' \
+     -d '{"questions": ["Hver er verðbólgan núna?", "Hvað búa margir á Íslandi?"]}'
 ```
 
 Interactive API documentation is at <http://127.0.0.1:8000/docs>.

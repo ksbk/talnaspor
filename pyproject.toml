@@ -9,7 +9,7 @@ description = "Auditable statistical question answering using official Icelandic
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi",
     "uvicorn",
@@ -23,13 +23,13 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = ["I"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 files = ["src", "tests"]
 strict = true
 

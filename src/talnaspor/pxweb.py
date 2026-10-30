@@ -2,7 +2,6 @@
 
 import json
 import re
-from typing import Self
 
 import requests
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -28,7 +27,7 @@ class PXMetadata(BaseModel):
     variables: list[PXVariable]
 
     @model_validator(mode="after")
-    def check_invariants(self) -> Self:
+    def check_invariants(self) -> "PXMetadata":
         """Reject metadata that could produce ambiguous queries or labels."""
         if not self.variables:
             raise ValueError("Metadata must define at least one variable")
