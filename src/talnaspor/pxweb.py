@@ -51,8 +51,8 @@ class PXMetadata(BaseModel):
 
 # Statistics Iceland limits requests per client and answers HTTP 429 when they come too
 # fast, sometimes for a minute or more. Identical requests are therefore served from a
-# short cache (figures change at most daily), and a 429 is retried once after a pause.
-CACHE_SECONDS = 600
+# one-hour cache (figures change at most daily), and a 429 is retried once after a pause.
+CACHE_SECONDS = 3600
 MAX_RETRY_WAIT = 3.0
 _cache: dict[tuple[str, str, str | None], tuple[float, requests.Response]] = {}
 

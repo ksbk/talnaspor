@@ -197,7 +197,7 @@ checked offline by `make check`.
   published for the current year, so other measures for that year are refused.
 - **Live data only.** Talnaspor needs network access to px.hagstofa.is, which limits
   requests per network address (HTTP 429), sometimes for minutes after heavy use.
-  Identical requests are cached for 10 minutes and a refused request is retried once;
+  Identical requests are cached for an hour and a refused request is retried once;
   beyond that, Talnaspor says Statistics Iceland is limiting requests.
 - **Curated answers are national headline figures.** A question naming anything they do
   not cover, such as a town, a sub-index or another country, is passed to the table

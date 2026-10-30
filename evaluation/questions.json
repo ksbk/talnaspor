@@ -683,6 +683,62 @@
       ]
     },
     {
+      "id": "cat-11",
+      "question": "Hvað eru margir íbúar í Reykjavík?",
+      "expect": "catalog",
+      "table_path": "Ibuar/mannfjoldi/2_byggdir/Byggdakjarnarhverfi/MAN03270.px",
+      "period": "2026",
+      "labels": {
+        "Hverfi": "Alls",
+        "Aldur": "Alls",
+        "Kyn": "Alls"
+      },
+      "values": [
+        139804
+      ],
+      "note": "Must not be answered with the national total (jury review A).",
+      "periods": [
+        "2026"
+      ]
+    },
+    {
+      "id": "cat-12",
+      "lang": "en",
+      "question": "What was the population of Reykjavik in 2020?",
+      "expect": "catalog",
+      "table_path": "Ibuar/mannfjoldi/2_byggdir/Byggdakjarnarhverfi/MAN03270.px",
+      "period": "2020",
+      "labels": {
+        "Hverfi": "Alls",
+        "Aldur": "Alls",
+        "Kyn": "Alls"
+      },
+      "values": [
+        126549
+      ],
+      "note": "Must not be answered with the national total (jury review A).",
+      "periods": [
+        "2020"
+      ]
+    },
+    {
+      "id": "cat-13",
+      "question": "Hver er meðalaldur íbúa á Íslandi?",
+      "expect": "catalog",
+      "table_path": "Ibuar/mannfjoldi/1_yfirlit/Yfirlit_mannfjolda/MAN00102.px",
+      "period": "2026",
+      "labels": {
+        "Kyn": "Alls"
+      },
+      "values": [
+        39.2
+      ],
+      "note": "Must not be answered with the population count (jury review A).",
+      "periods": [
+        "2026"
+      ]
+    },
+    {
       "id": "find-04",
       "question": "How many tourists visit Iceland?",
       "expect": "suggestions",

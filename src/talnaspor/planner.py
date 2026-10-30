@@ -77,8 +77,8 @@ CATEGORY_WORDS = frozenset({"fjoldi"})
 # Without a year in the question, the latest period must be at most this many years old.
 RECENT_YEARS = 2
 
-# Table metadata changes at most daily; a short cache keeps trying several tables fast.
-METADATA_SECONDS = 600
+# Table metadata changes at most daily; a cache keeps trying several tables fast.
+METADATA_SECONDS = 3600
 _metadata: dict[str, tuple[float, PXMetadata]] = {}
 
 

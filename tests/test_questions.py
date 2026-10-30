@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 
 from talnaspor.app import candidates
-from talnaspor.catalog import search
-from talnaspor.interpret import Clarification, Interpretation, interpret
+from talnaspor.catalog import question_words, search
+from talnaspor.interpret import Clarification, Interpretation, curated_terms_cover, interpret
 
 QUESTIONS: list[dict[str, Any]] = json.loads(
     (Path(__file__).parent.parent / "evaluation" / "questions.json").read_text(encoding="utf-8")
@@ -24,9 +24,12 @@ def test_question_is_interpreted_as_recorded(item: dict[str, Any]) -> None:
         assert item["message"] in result.text(item.get("lang", "is"))
         return
     if item["expect"] in ("suggestions", "catalog"):
-        # Not a curated topic: the expected table must be among those the planner tries.
-        assert isinstance(result, Clarification)
-        assert not result.recognized
+        # Not a curated question: either no curated topic, or a word the curated answers do
+        # not cover. The expected table must be among those the planner tries.
+        if isinstance(result, Clarification):
+            assert not result.recognized
+        else:
+            assert not curated_terms_cover(question_words(item["question"]))
         table = item.get("table") or item["table_path"]
         hits = candidates(item["question"], search(item["question"], limit=10))
         assert any(hit.api_url.endswith("/" + table) for hit in hits)

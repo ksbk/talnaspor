@@ -25,8 +25,10 @@ Ten minutes per team. Print this page.
 - [ ] **Do not run `make evaluate` or any bulk testing on the demo day.** It sends hundreds
       of requests and can get the network address blocked for 10 minutes or more.
 - [ ] Start: `make run`, open <http://127.0.0.1:8000>, select **ÍS**.
-- [ ] **Warm up within 10 minutes of presenting:** ask the demo questions once. Table
-      metadata is cached for 10 minutes, so answers are fastest right after this.
+- [ ] **Warm up 15–45 minutes before presenting, slowly (one question every 30 seconds):**
+      ask every demo question once. Responses are cached for an hour, so the live demo
+      then makes no new requests to Statistics Iceland. Do not restart the server after
+      warming up: the cache is in memory.
 - [ ] Browser zoom 125–150% for the projector; other tabs closed; Do Not Disturb on.
 - [ ] Slides open in Present mode in a second window; PDF and backup video on the desktop.
 
@@ -44,7 +46,7 @@ Ten minutes per team. Print this page.
 Statistics Iceland limits requests per network address. In testing it refused requests
 (HTTP 429) after about 8 in 25 seconds, and after heavy use it blocked for 10 minutes or
 more. One catalog question can make 10–20 requests. Talnaspor caches identical requests
-for 10 minutes and retries once, so repeated demo questions are safe. Results below are as of 30 October 2026; a “latest” figure changes only
+for an hour and retries once, so warmed-up and repeated demo questions are safe. Results below are as of 30 October 2026; a “latest” figure changes only
 when Statistics Iceland publishes new data, and the card always shows the period.
 
 | # | Lang | Type or click | Expect | Shows |
