@@ -214,6 +214,8 @@ checked offline by `make check`.
   runtime. The only external service contacted is Statistics Iceland's public API.
 - **Data:** Statistics Iceland (Hagstofa Íslands), retrieved live from
   [px.hagstofa.is](https://px.hagstofa.is).
+- **Step-by-step guide:** [docs/how-it-works.md](docs/how-it-works.md) traces a question
+  through the data, interpretation, query and verification.
 - **Design decision:** [docs/adr/001-separate-retrieval.md](docs/adr/001-separate-retrieval.md).
 - **Licence:** [MIT](LICENSE). Talnaspor is free to use, modify and share.
 
