@@ -8,6 +8,8 @@ from typing import Any
 import requests
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from talnaspor.runtime import RuntimePolicyError, check_px_url
+
 
 class PXVariable(BaseModel):
     """A statistical dimension and its available value codes."""
@@ -61,6 +63,10 @@ class RateLimited(requests.HTTPError):
     """Statistics Iceland refused the request because too many were sent (HTTP 429)."""
 
 
+# Any redirect is refused, with or without a Location header.
+REDIRECTS = frozenset({301, 302, 303, 307, 308})
+
+
 def clear_cache() -> None:
     _cache.clear()
 
@@ -71,13 +77,17 @@ def _send(method: str, url: str, **kwargs: Any) -> requests.Response:
     if cached and time.monotonic() - cached[0] < CACHE_SECONDS:
         return cached[1]
 
+    # Only Statistics Iceland's API, and no redirect that could lead elsewhere.
+    check_px_url(url)
     send = requests.get if method == "GET" else requests.post
-    response = send(url, **kwargs)
+    response = send(url, allow_redirects=False, **kwargs)
     if response.status_code == 429:
         time.sleep(_retry_wait(response))
-        response = send(url, **kwargs)
+        response = send(url, allow_redirects=False, **kwargs)
         if response.status_code == 429:
             raise RateLimited(f"429 Too Many Requests for url: {url}", response=response)
+    if response.status_code in REDIRECTS:
+        raise RuntimePolicyError(f"Redirect refused: {url} -> {response.headers.get('Location')}")
     response.raise_for_status()
     _cache[key] = (time.monotonic(), response)
     return response

@@ -1,6 +1,7 @@
 """FastAPI application exposing Talnaspor's chat page and question endpoint."""
 
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Annotated, Literal
@@ -32,9 +33,13 @@ from talnaspor.planner import (
     plan_comparison,
 )
 from talnaspor.pxweb import RateLimited
+from talnaspor.runtime import check_environment
 from talnaspor.validation import UnavailableValue
 
-app = FastAPI(title="Talnaspor")
+# Settings that would send data to another host stop the server here, before it starts.
+check_environment(os.environ)
+# No telemetry export, whatever OTEL_* environment variables say.
+app = FastAPI(title="Talnaspor", telemetry={"auto_configure": False})
 logger = logging.getLogger(__name__)
 
 INDEX = Path(__file__).parent / "static" / "index.html"
