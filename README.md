@@ -235,6 +235,15 @@ and all 4 that must be refused refused. See
 - **Design decision:** [docs/adr/001-separate-retrieval.md](docs/adr/001-separate-retrieval.md).
 - **Licence:** [MIT](LICENSE). Talnaspor is free to use, modify and share.
 
+## How it was built
+
+Talnaspor was developed with the help of AI coding assistants (Claude Code and Codex),
+which helped write, test and review the code. All statistical logic is deterministic
+code in this repository, tested and reviewed by the team: interpreting questions,
+choosing tables, validating queries, verifying responses and calculating changes. No AI
+service or language model runs when Talnaspor answers a question; the only external
+service it contacts is Statistics Iceland's PX-Web API.
+
 ## Development
 
 ```sh
