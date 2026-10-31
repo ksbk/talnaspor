@@ -70,7 +70,12 @@ clarifications and the interface follow the **ÍS / EN** switch.
   "last year" for population, two periods to compare, or a span back from the latest
   period ("síðustu tíu árin", "the last 6 months").
 - **Comparisons:** a change in a percentage is reported in percentage points. Levels such
-  as population also get the relative change.
+  as population also get the relative change. Catalog tables compare two periods too, but
+  only when the unit or the selected category says whether the measure is a percentage,
+  an index or a count.
+- **Follow-ups:** a short follow-up such as *What about women?*, *En hjá körlum?*, *And in
+  2020?* or *En í Reykjavík?* narrows the previous question, and the answer shows how it
+  was understood. Without a previous question, Talnaspor asks for the whole question.
 
 For other topics, answers from a catalog table are marked as selected automatically and
 list every value chosen, so they can be checked. When one choice is missing, such as a
@@ -165,10 +170,8 @@ format.
 make evaluate    # Ask every question live and write evaluation/results.md (slow)
 ```
 
-Latest full run, of the first 62 questions: **61 pass, 1 documented limitation, 0
-failures**. The three added since (Reykjavík population and average age, which must not
-get national headline figures) were each verified live against independently fetched
-values. This includes 14 answers
+Latest full run, on 31 October 2026: **64 of 65 pass, 1 documented limitation, 0
+failures**. This includes 14 answers
 from catalog tables, each checked for the table, period and figure (and, in Icelandic,
 every selected value), 4 refusals, and 3 questions where the expected table must be
 among those suggested. See
@@ -178,19 +181,32 @@ Statistics Iceland's request limit can still interrupt it; run it well before a 
 tune the rules, for comparing interpreters. Every question's interpretation is also
 checked offline by `make check`.
 
+[evaluation/understanding.json](evaluation/understanding.json) holds 30 questions written
+before the changes they measure (paraphrases, restrictions, comparisons, follow-ups and
+questions that must be refused), half of them held out from development. Every response
+is recorded, so `make understanding` replays it offline. Latest: no wrong answers; 6 of 13
+answerable development questions and 4 of 13 held-out ones answered (2 of 13 each before),
+and all 4 that must be refused refused. See
+[evaluation/understanding-results.md](evaluation/understanding-results.md).
+
 ## Known limitations
 
 - **Curated answers from two tables.** The consumer price index and key population figures
   have tailored wording, units and comparisons. Adding one means adding its configuration
   to [tables.py](src/talnaspor/tables.py) and keywords to
   [interpret.py](src/talnaspor/interpret.py).
-- **Catalog answers are cautious.** They give one figure for one period, with the unit
-  Statistics Iceland states for the table, which can be general ("Fjöldi/hlutfall").
-  Many questions get a choice or suggestions instead of an answer.
+- **Catalog answers are cautious.** They give one figure, or a comparison of two periods
+  when the measure's kind is clear, with the unit Statistics Iceland states for the table,
+  which can be general ("Fjöldi/hlutfall"). Many questions get a choice or suggestions
+  instead of an answer.
 - **Suggestions use word matching.** They can miss a table described with different
   words, and they reflect the catalog as of its last crawl, which
   `scripts/build_catalog.py` refreshes.
-- **Keyword rules.** Unusual phrasing gets a clarification rather than an answer.
+- **Keyword rules.** Unusual phrasing gets a clarification rather than an answer. A local
+  language model (Qwen3 8B) that reworded missed questions was tested on the held-out
+  questions; it added one answer, below the agreed bar, so it is not included.
+- **Follow-ups in a few fixed forms.** A sex, an age group, a year or a place; anything
+  else is treated as a new question.
 - **Relative periods.** "Last year" (population) and spans such as "síðustu fimm ár"
   work. "Last month" and "ten years ago" get a clarification instead of an answer.
 - **Two periods at most.** There are no time series or charts.
