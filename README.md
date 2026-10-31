@@ -187,7 +187,15 @@ questions that must be refused), half of them held out from development. Every r
 is recorded, so `make understanding` replays it offline. Latest: no wrong answers; 6 of 13
 answerable development questions and 4 of 13 held-out ones answered (2 of 13 each before),
 and all 4 that must be refused refused. See
-[evaluation/understanding-results.md](evaluation/understanding-results.md).
+[evaluation/understanding-results.md](evaluation/understanding-results.md). One expected
+value was wrong until 31 October: an immigrants table that also counts the second
+generation was accepted for “How many immigrants live in Iceland?”. The external check
+below found it; Talnaspor's answer was then wrong too, and is now fixed.
+
+**External check.** The Gagnaþon Track 3 starter's 60 bilingual, source-backed questions:
+16 correct, 44 safe (clarification, suggestions or refusal) and 0 wrong, from 9 correct and
+4 wrong before the fixes it prompted. Questions that ask two things or need a ratio are
+refused. See [evaluation/track3-results.md](evaluation/track3-results.md).
 
 ## Known limitations
 
