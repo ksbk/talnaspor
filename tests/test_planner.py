@@ -163,6 +163,8 @@ def test_skips_a_table_that_sums_what_the_question_names_one_of() -> None:
     assert _counts_together({"hotel", "gistinaetur"}, [], joined, untitled, None)
     assert not _counts_together({"hotelum", "gistiheimilum"}, [], joined, untitled, None)
     assert not _counts_together({"gistinaetur"}, [], joined, untitled, None)
+    # A misspelling the word check accepts is caught here too.
+    assert _counts_together({"hotelli", "gistinaetur"}, [], joined, untitled, None)
 
 
 def test_keeps_a_table_whose_dimension_separates_the_joined_things() -> None:

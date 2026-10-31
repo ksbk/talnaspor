@@ -465,7 +465,9 @@ def _counts_together(
         terms.update(related)
 
     def named(word: str) -> bool:
-        return any(_match(term, word) == 1.0 for term in terms)
+        # As loosely as the word check accepts a word, so that a misspelling ("hotelli")
+        # cannot pass that check and still slip past this one.
+        return any(_match(term, word) for term in terms)
 
     titles = [metadata.title, hit.title_en or "", english.title if english else ""]
     for title in titles:
