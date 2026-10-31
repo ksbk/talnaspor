@@ -12,6 +12,7 @@ from talnaspor.planner import (
     Span,
     _accounts_for,
     _counts_together,
+    _settle,
     _time_variable,
     comparison_span,
     measure_kind,
@@ -19,7 +20,7 @@ from talnaspor.planner import (
     plan_comparison,
     select,
 )
-from talnaspor.pxweb import PXMetadata
+from talnaspor.pxweb import PXMetadata, PXVariable
 
 URL = "https://px.hagstofa.is/pxis/api/v1/is/Samfelag/vinnumarkadur/VIN01002.px"
 
@@ -589,3 +590,41 @@ def test_prefers_a_stated_total_over_ages_16_74() -> None:
     selections, _ = select(survey(["Alls", "16-74 ára", "16-24 ára"]), {}, "2025")
 
     assert selections == {"Ár": "2025", "Aldur": "0"}
+
+
+def births_unit() -> PXVariable:
+    return PXVariable.model_validate(
+        {
+            "code": "Eining",
+            "text": "Eining",
+            "values": ["0", "1"],
+            "valueTexts": ["Öll börn", "Frumburðir"],
+        }
+    )
+
+
+def test_counts_all_children_unless_the_question_asks_for_the_first_born() -> None:
+    english = PXVariable.model_validate(
+        {
+            "code": "Eining",
+            "text": "Unit",
+            "values": ["0", "1"],
+            "valueTexts": ["All children", "First born children"],
+        }
+    )
+
+    assert _settle(births_unit(), {"children": 1.0, "born": 1.0}, english) == "0"
+    assert _settle(births_unit(), {"children": 1.0, "first": 1.0, "born": 1.0}, english) == "1"
+
+
+def test_takes_an_index_tables_level_when_no_measure_is_named() -> None:
+    measure = PXVariable.model_validate(
+        {
+            "code": "Eining",
+            "text": "Eining",
+            "values": ["index", "change_M", "change_A"],
+            "valueTexts": ["Vísitölugildi", "Mánaðarbreyting, %", "Ársbreyting, %"],
+        }
+    )
+
+    assert _settle(measure, {"launavisitalan": 1.0}) == "index"

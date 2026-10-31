@@ -331,6 +331,7 @@ def test_keeps_years_outside_the_usual_range() -> None:
         ("What is the inflation rate in Norway?", False),
         ("Hver er meðalaldur íbúa á Íslandi?", False),
         ("How has the population of Iceland changed over the last decade?", True),
+        ("How many people lived in Iceland on 1 January 2026?", True),
         ("Hvernig hefur mannfjöldinn breyst síðasta áratuginn?", True),
     ],
 )

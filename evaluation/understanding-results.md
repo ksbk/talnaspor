@@ -1,40 +1,40 @@
 # Understanding evaluation
 
-Run on 2026-10-31; expected values recorded 2026-10-31. Latency: live (5 new PX-Web requests).
+Run on 2026-10-31; expected values recorded 2026-10-31. Latency: live (11 new PX-Web requests).
 
 CORRECT: the right figure, or a refusal where none should be given. SAFE: no answer where one exists (a clarification, suggestions or a refusal). WRONG: a figure that does not match an accepted cell, or a figure where none should be given. Coverage: correct answers among the answerable questions.
 
 | Split | Correct | Safe | Wrong | Error | Coverage | Median ms | Max ms |
 |---|---:|---:|---:|---:|---|---:|---:|
-| dev | 8 | 7 | 0 | 0 | 6/13 | 8 | 520 |
-| holdout | 6 | 9 | 0 | 0 | 4/13 | 13 | 908 |
+| dev | 8 | 7 | 0 | 0 | 6/13 | 10 | 1352 |
+| holdout | 6 | 9 | 0 | 0 | 4/13 | 11 | 1854 |
 
 ## By category (both splits)
 
 | Category | Correct | Safe | Wrong | Error | Coverage | Median ms | Max ms |
 |---|---:|---:|---:|---:|---|---:|---:|
-| change | 2 | 2 | 0 | 0 | 2/4 | 10 | 13 |
+| change | 2 | 2 | 0 | 0 | 2/4 | 10 | 10 |
 | follow-up | 3 | 1 | 0 | 0 | 3/4 | 8 | 13 |
-| no answer | 4 | 0 | 0 | 0 | 0/0 | 4 | 10 |
-| paraphrase | 3 | 9 | 0 | 0 | 3/12 | 15 | 520 |
-| restriction | 2 | 4 | 0 | 0 | 2/6 | 12 | 908 |
+| no answer | 4 | 0 | 0 | 0 | 0/0 | 5 | 11 |
+| paraphrase | 3 | 9 | 0 | 0 | 3/12 | 20 | 1854 |
+| restriction | 2 | 4 | 0 | 0 | 2/6 | 12 | 907 |
 
 ## Dev questions
 
 | ID | Lang | Category | Question | Result | Shown | ms |
 |---|---|---|---|---|---|---:|
-| d01 | EN | paraphrase | How many people live in Iceland right now? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 520 |
-| d02 | IS | paraphrase | Hve hátt var atvinnuleysið árið 2024? | SAFE | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 7 |
-| d03 | EN | paraphrase | How many hotel overnight stays were there in August 2025? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 15 |
-| d04 | IS | paraphrase | Hversu mörg börn fæddust árið 2025? | CORRECT | 4.387 (Fjöldi) (2025, Lifandi fædd börn eftir aldursflokki móður og hjús) | 8 |
-| d05 | IS | paraphrase | Hverjar eru lífslíkur kvenna á Íslandi? | SAFE | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 7 |
-| d06 | EN | paraphrase | What is the latest consumer price index value? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 18 |
-| d07 | EN | restriction | What was the unemployment rate for women in 2025? | CORRECT | 4.3 (Number/percent) (2025, Activity rate, unemployment, labour force and work) | 13 |
+| d01 | EN | paraphrase | How many people live in Iceland right now? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 504 |
+| d02 | IS | paraphrase | Hve hátt var atvinnuleysið árið 2024? | SAFE | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 8 |
+| d03 | EN | paraphrase | How many hotel overnight stays were there in August 2025? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 18 |
+| d04 | IS | paraphrase | Hversu mörg börn fæddust árið 2025? | CORRECT | 4.387 (Fjöldi) (2025, Lifandi fæddir, öll börn og frumburðir eftir aldri) | 1352 |
+| d05 | IS | paraphrase | Hverjar eru lífslíkur kvenna á Íslandi? | SAFE | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 17 |
+| d06 | EN | paraphrase | What is the latest consumer price index value? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 27 |
+| d07 | EN | restriction | What was the unemployment rate for women in 2025? | CORRECT | 4.3 (Number/percent) (2025, Activity rate, unemployment, labour force and work) | 15 |
 | d08 | IS | restriction | Hve margar konur bjuggu á Íslandi 1. janúar 2026? | CORRECT | 191.927 (Fjöldi) (2026, Mannfjöldi eftir kyni og aldri 1841-2026) | 10 |
-| d09 | IS | restriction | Hvert var atvinnuleysi ungs fólks (16-24 ára) árið 2025? | SAFE | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 11 |
+| d09 | IS | restriction | Hvert var atvinnuleysi ungs fólks (16-24 ára) árið 2025? | SAFE | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 12 |
 | d10 | EN | change | How did unemployment change between 2020 and 2025? | CORRECT | 6.3 (Number/Percent) → 4.3 (Number/Percent) | 9 |
-| d11 | EN | change | What was food inflation in September 2026? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 8 |
-| d12 | EN | follow-up | (What is the population of Iceland in 2026?) → What about women? | CORRECT | 191,927 (Number) (2026, Population by sex and age 1841-2026) | 8 |
-| d13 | IS | follow-up | (Hvert var atvinnuleysi árið 2025?) → En hjá körlum? | CORRECT | 4,4 (Fjöldi/hlutfall) (2025, Atvinnuþátttaka, atvinnuleysi 1991-2025) | 7 |
-| d14 | IS | no answer | Mun verðbólgan lækka á næsta ári? | CORRECT | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 8 |
+| d11 | EN | change | What was food inflation in September 2026? | SAFE | suggestions: I cannot answer this directly yet, but these Statistics Iceland tables probably cover it: | 10 |
+| d12 | EN | follow-up | (What is the population of Iceland in 2026?) → What about women? | CORRECT | 191,927 (Number) (2026, Population by sex and age 1841-2026) | 9 |
+| d13 | IS | follow-up | (Hvert var atvinnuleysi árið 2025?) → En hjá körlum? | CORRECT | 4,4 (Fjöldi/hlutfall) (2025, Atvinnuþátttaka, atvinnuleysi 1991-2025) | 8 |
+| d14 | IS | no answer | Mun verðbólgan lækka á næsta ári? | CORRECT | suggestions: Ég get ekki svarað þessu beint ennþá, en þessar töflur Hagstofu Íslands fjalla líklega um  | 10 |
 | d15 | EN | no answer | What about women? | CORRECT | clarification: I don't know which question this follows. Please ask the whole question, for example “What | 0 |

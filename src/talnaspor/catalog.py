@@ -138,6 +138,7 @@ STOPWORDS = frozenset(
         "live",
         "lives",
         "living",
+        "lived",
         "persons",
         "among",
         "like",
@@ -197,6 +198,9 @@ RELATED_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # "Búa" and "bjuggu" (live, lived) ask how many people: the population.
     ("bua", ("mannfjoldi",)),
     ("bjugg", ("mannfjoldi",)),
+    # An immigrant is a category of background ("Innflytjandi") in the background table.
+    ("innflytjend", ("innflytjandi", "bakgrunni")),
+    ("immigrant", ("innflytjandi", "bakgrunni", "background")),
     ("hversu margir", ("fjoldi",)),
     ("hve margir", ("fjoldi",)),
     ("how many", ("fjoldi",)),

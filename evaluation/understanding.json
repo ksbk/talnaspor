@@ -426,20 +426,21 @@
       "expect": "answer",
       "accept": [
         {
-          "table_path": "Ibuar/mannfjoldi/3_bakgrunnur/Uppruni/MAN43005.px",
+          "table_path": "Ibuar/mannfjoldi/3_bakgrunnur/Uppruni/MAN43000.px",
           "periods": [
             "2026"
           ],
           "labels": {
-            "Sveitarfélag": "Alls",
             "Aldur": "Alls",
+            "Bakgrunnur": "Innflytjandi",
             "Kyn": "Alls"
           },
           "values": [
-            85577
+            77226
           ]
         }
-      ]
+      ],
+      "note": "Immigrants are Statistics Iceland's 'Innflytjandi' background. MAN43005 ('Innflytjendur eftir kyni og sveitarfélagi', 85,577) also counts the second generation; it was wrongly accepted here until 2026-10-31."
     },
     {
       "id": "h04",

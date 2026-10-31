@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Annotated, Literal
@@ -63,6 +64,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "unpublished": "Hagstofa Íslands hefur ekki birt þessa tölu (merkt „..“ í töflunni).",
         "missing": "Þessi tala er ekki tiltæk í töflu Hagstofu Íslands.",
+        "one_at_a_time": (
+            "Spyrðu einnar spurningar í einu, til dæmis fyrst um annað og svo um hitt."
+        ),
         "no_context": (
             "Ég veit ekki við hvaða spurningu þetta á. Spyrðu allrar spurningarinnar, til "
             "dæmis „Hvert var atvinnuleysi kvenna árið 2025?“"
@@ -86,6 +90,7 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Statistics Iceland has not published this figure (marked “..” in the table)."
         ),
         "missing": "This figure is not available in Statistics Iceland's table.",
+        "one_at_a_time": "Please ask one question at a time: the first, then the second.",
         "no_context": (
             "I don't know which question this follows. Please ask the whole question, for "
             "example “What was the unemployment rate for women in 2025?”"
@@ -95,6 +100,11 @@ MESSAGES: dict[str, dict[str, str]] = {
 
 
 Question = Annotated[str, Field(min_length=1, max_length=500)]
+
+# Two questions in one: "…, and how many…", "… og hve margir…".
+SEVERAL_QUESTIONS = re.compile(
+    r"\b(and|og)\s+(how|what|which|when|hve|hversu|hvad|hver|hvert|hverjir|hverjar|hvenaer)\b"
+)
 
 # Questions are answered one after another, which keeps a batch within PX-Web's rate limit.
 MAX_BATCH = 10
@@ -138,11 +148,23 @@ class AskBatchResponse(BaseModel):
     elapsed_ms: int
 
 
-# Statistics Iceland's population by sex and age: for a population question it is tried
-# first, so that a table counting people another way (by registered religious affiliation,
-# with a different total) cannot answer instead. It still answers only if the planner can
-# settle every word of the question from it.
+# Statistics Iceland's primary table for a core topic is tried first for a question about
+# it, so that a table counting something narrower or broader cannot answer instead (the
+# population by registered religious affiliation, children in preschools for births). It
+# still answers only if the planner can settle every word of the question from it.
 POPULATION_TABLE = "Ibuar/mannfjoldi/1_yfirlit/Yfirlit_mannfjolda/MAN00101.px"
+IMMIGRANT_TABLE = "Ibuar/mannfjoldi/3_bakgrunnur/Uppruni/MAN43000.px"
+BIRTH_TABLE = "Ibuar/Faeddirdanir/Faeddir/faedingar/MAN05101.px"
+PRIMARY_TABLES: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("innflytj", "immigrant"), IMMIGRANT_TABLE),
+    (("faeddust", "faeddir", "faeding", "born", "birth"), BIRTH_TABLE),
+    (POPULATION_WORDS, POPULATION_TABLE),
+)
+
+# Tables whose figures mean more than their titles say. "Innflytjendur eftir kyni og
+# sveitarfélagi" counts the second generation of immigrants too (85,577 on 1 January 2026,
+# against 77,226 immigrants), so it never answers a question about immigrants.
+EXCLUDED_TABLES = frozenset({"Ibuar/mannfjoldi/3_bakgrunnur/Uppruni/MAN43005.px"})
 
 
 def candidates(question: str, tables: list[TableHit]) -> list[TableHit]:
@@ -160,9 +182,10 @@ def candidates(question: str, tables: list[TableHit]) -> list[TableHit]:
         return sorted(hits, key=lambda hit: (-hit.score, len(hit.title)))
 
     text = normalize(question)
-    population = table(POPULATION_TABLE) if any(w in text for w in POPULATION_WORDS) else None
-    ordered = [population] if population else []
+    primary = [table(path) for words, path in PRIMARY_TABLES if any(w in text for w in words)]
+    ordered = [hit for hit in primary if hit]
     ordered += ranked(tables[:5]) + ranked(by_topic) + ranked(tables[5:])
+    ordered = [hit for hit in ordered if not hit.api_url.endswith(tuple(EXCLUDED_TABLES))]
     unique = {hit.api_url: hit for hit in reversed(ordered)}
     return sorted(unique.values(), key=ordered.index)
 
@@ -244,6 +267,10 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         )
 
     messages = MESSAGES[lang]
+    if SEVERAL_QUESTIONS.search(normalize(question)):
+        # Answering one part, or reading two parts as a comparison, would answer a question
+        # that was not asked.
+        return respond(status="clarification", message=messages["one_at_a_time"])
     interpretation = interpret(question)
     if isinstance(interpretation, Interpretation) and not curated_terms_cover(
         question_words(question)

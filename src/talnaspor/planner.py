@@ -89,6 +89,11 @@ YEAR = re.compile(r"\b([12]\d{3})\b")
 # used only when a dimension has no other total ("Alls").
 SURVEY_TOTALS = frozenset({"16-74 ara", "16-74 years", "16-74"})
 
+# An index table's level ("Vísitölugildi", "Vísitala"), the default for its measure when
+# a question names none and the dimension has no total: "Hver var launavísitalan?" asks
+# for the index, not its monthly or annual change.
+LEVELS = frozenset({"visitolugildi", "visitala", "index", "index value"})
+
 # "1. janúar 2026" dates a count, such as the population, to the start of a year: it asks
 # about the year, not the month, and its "1" is not a category such as "1 árs".
 START_OF_YEAR = re.compile(r"\b(1\.? januar|1(st)? (of )?january|january 1(st)?),? (?=[12]\d{3}\b)")
@@ -343,16 +348,29 @@ def _settle(
         index: _naming_weight(f"{text} {text_en}", weights)
         for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
     }
-    named = {index: weight for index, weight in named.items() if weight}
-    totals = [
-        index
-        for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
-        if normalize(text).strip() in TOTALS or normalize(text_en).strip() in TOTALS
-    ] or [
-        index
-        for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
-        if normalize(text).strip() in SURVEY_TOTALS or normalize(text_en).strip() in SURVEY_TOTALS
-    ]
+    named = {
+        index: weight
+        for index, weight in named.items()
+        if weight and _eligible(f"{texts[index]} {texts_en[index]}", weights)
+    }
+    totals = (
+        [
+            index
+            for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
+            if normalize(text).strip() in TOTALS or normalize(text_en).strip() in TOTALS
+        ]
+        or [
+            index
+            for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
+            if normalize(text).strip() in SURVEY_TOTALS
+            or normalize(text_en).strip() in SURVEY_TOTALS
+        ]
+        or [
+            index
+            for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
+            if normalize(text).strip() in LEVELS or normalize(text_en).strip() in LEVELS
+        ]
+    )
 
     if named:
         best = max(named.values())
@@ -362,6 +380,20 @@ def _settle(
             candidates = [index for index in candidates if index not in totals]
         return variable.values[candidates[0]] if len(candidates) == 1 else None
     return variable.values[totals[0]] if len(totals) == 1 else None
+
+
+# Categories chosen only when the question uses one of these words: "How many children
+# were born" names both "All children" and "First born children", but asks about all.
+QUALIFIED = {"frumburd": ("frumburd", "first"), "first born": ("frumburd", "first")}
+
+
+def _eligible(label: str, weights: dict[str, float]) -> bool:
+    text = normalize(label)
+    return all(
+        any(term.startswith(required) for term in weights for required in words)
+        for qualifier, words in QUALIFIED.items()
+        if qualifier in text
+    )
 
 
 def _naming_weight(text: str, weights: dict[str, float]) -> float:

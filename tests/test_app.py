@@ -6,7 +6,16 @@ import requests
 from fastapi.testclient import TestClient
 
 from talnaspor.answer import LATEST, Answer, Comparison, Point
-from talnaspor.app import POPULATION_TABLE, AskResponse, app, candidates
+from talnaspor.app import (
+    BIRTH_TABLE,
+    EXCLUDED_TABLES,
+    IMMIGRANT_TABLE,
+    POPULATION_TABLE,
+    AskResponse,
+    app,
+    candidates,
+)
+from talnaspor.catalog import search
 from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import Choice
 from talnaspor.pxweb import PXMetadata, RateLimited
@@ -450,3 +459,47 @@ def test_answers_a_comparison_from_a_catalog_table() -> None:
     assert body["comparison"]["difference_text"] == "+0,8 prósentustig"
     plan.assert_called_once()
     single.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("question", "first"),
+    [
+        ("How many immigrants lived in Iceland on 1 January 2026?", IMMIGRANT_TABLE),
+        ("Hve margir innflytjendur bjuggu á Íslandi?", IMMIGRANT_TABLE),
+        ("How many children were born in Iceland in 2024?", BIRTH_TABLE),
+        ("Hve mörg börn fæddust á Íslandi árið 2024?", BIRTH_TABLE),
+    ],
+)
+def test_tries_the_primary_table_of_a_core_topic_first(question: str, first: str) -> None:
+    # Births were answered from children in preschools; immigrants from a table that also
+    # counts the second generation.
+    assert candidates(question, [])[0].api_url.endswith("/" + first)
+
+
+def test_never_answers_from_a_table_broader_than_its_title() -> None:
+    question = "Hve margir innflytjendur bjuggu á Íslandi?"
+    tried = candidates(question, search(question, limit=10))
+
+    assert not any(hit.api_url.endswith(tuple(EXCLUDED_TABLES)) for hit in tried)
+
+
+@pytest.mark.parametrize(
+    ("question", "lang"),
+    [
+        (
+            (
+                "How many children were born in Iceland in 2025, and how many immigrants "
+                "lived in Iceland on 1 January 2026?"
+            ),
+            "en",
+        ),
+        ("Hver var launavísitalan og hver var vísitala neysluverðs í ágúst 2026?", "is"),
+    ],
+)
+def test_asks_for_one_question_at_a_time(question: str, lang: str) -> None:
+    # Two years in two questions were read as a comparison between them.
+    with patch("talnaspor.app.plan_comparison") as compare, patch("talnaspor.app.plan_answer"):
+        body = client.post("/ask", json={"question": question, "lang": lang}).json()
+
+    assert body["status"] == "clarification"
+    compare.assert_not_called()
