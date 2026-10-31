@@ -228,19 +228,17 @@ def invalid_duration(text: str) -> bool:
 
 def invalid_year(text: str) -> bool:
     """Whether normalized text names a year Talnaspor cannot read as a period ("the year 0",
-    "árið 500", "year 3000"): only four-digit years from 1000 to 2999 are, and any other
-    would be silently dropped."""
-    return any(
-        not 1000 <= int(number) <= 2999
-        for number in re.findall(r"\b(?:year|arid|ari)\s+(\d+)\b", text)
-    )
+    "árið 500", "á árinu 0", "year 0000", "year +2025"): only four-digit years from 1000 to
+    2999 are, and any other would be silently dropped."""
+    named = re.findall(r"\b(?:year|ar|arid|ari|arinu)\s+([+-]?\d+)\b", text)
+    return any(re.fullmatch(YEAR, year) is None for year in named)
 
 
 # A request for a whole series or chart, which Talnaspor does not yet draw: two endpoints
 # would answer a different question.
 SERIES = re.compile(
-    r"\b(trend|time series|series|year by year|each year|every year|ar fra ari"
-    r"|timaro\w*|chart|graph|linurit\w*|graf\w*)\b"
+    r"\b(trends?|time\s+series|series|year by year|each year|every year|ar fra ari"
+    r"|throun\w*|timaro\w*|charts?|graphs?|linurit\w*|graf\w*)\b"
 )
 
 
