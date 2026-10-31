@@ -24,6 +24,7 @@ from talnaspor.interpret import (
     interpret,
     narrow,
     normalize,
+    without_periods,
 )
 from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import (
@@ -273,7 +274,7 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         return respond(status="clarification", message=messages["one_at_a_time"])
     interpretation = interpret(question)
     if isinstance(interpretation, Interpretation) and not curated_terms_cover(
-        question_words(question)
+        question_words(without_periods(question))
     ):
         # The question names something the national headline figures do not answer, such
         # as a municipality or a sub-index, so it is treated as any other topic: the

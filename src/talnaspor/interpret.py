@@ -108,7 +108,7 @@ POPULATION_WORDS = (
 # Word starts only, so that "arsbreyting" (annual change) is not a change-over-time question.
 CHANGE = re.compile(
     r"\b(breyst|breyttist|breyting|thro(un|a)|aukist|haekkad|laekkad|vaxid|samanburd"
-    r"|change|trend|compare|comparison|grown)"
+    r"|change|trend|compare|comparison|grown|evolv)"
 )
 
 # The start of a span, as in "frá 2015" or "since 2000", which runs to the latest period.
@@ -123,24 +123,68 @@ NUMBERS = {
     "fjogur": 4, "fjogurra": 4, "fimm": 5, "sex": 6, "sjo": 7, "atta": 8, "niu": 9,
     "tiu": 10, "tuttugu": 20, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
     "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "twenty": 20,
+    "einu": 1, "tveimur": 2, "thremur": 3, "fjorum": 4, "hundrad": 100, "hundred": 100,
 }  # fmt: skip
 
 # A span back from the latest period, as in "síðustu tíu árin" or "the last 5 years".
 SPAN = re.compile(
-    rf"\b(?:sidustu|last|past)\s+(\d{{1,2}}|{'|'.join(NUMBERS)})\s+"
+    rf"\b(?:sidustu|last|past)\s+(\d{{1,3}}|{'|'.join(NUMBERS)})\s+"
     r"(ar|arin|arum|years?|manudi|manudina|manuda|months?)\b"
 )
 
 # "The last 12 months" describes annual change, not a relative period.
 TWELVE_MONTHS = re.compile(r"\b(sidustu|last|past) 12 (manada|manudi|months)\b")
 # A whole word: "síðasta ár" (last year) must not match "síðasta áratuginn" (the last decade).
-LAST_YEAR = re.compile(r"\b(last year|previous year|i fyrra|sidasta ar|sidastlidid ar)\b")
+LAST_YEAR = re.compile(
+    r"\b(last year|past year|previous year|i fyrra|sidasta ar|sidasta arid|sidastlidid ar)\b"
+)
 
 # "The last decade" is the last ten years.
 DECADE = re.compile(r"\b((the )?(last|past) decade|sidasta aratug\w*)")
+# "The last century" is the last hundred years.
+CENTURY = re.compile(r"\b((the )?(last|past) century|sidustu old\w*|sidustu aldar)\b")
+
+# A point in time back from the latest period: "ten years ago", "a decade ago",
+# "fyrir tíu árum", "fyrir áratug".
+AGO = re.compile(
+    rf"\b(?:(\d{{1,3}}|{'|'.join(NUMBERS)}|a|an) (years?|decades?) ago"
+    rf"|fyrir (?:(\d{{1,3}}|{'|'.join(NUMBERS)}) )?(ari|arum|aratug|aratugum))\b"
+)
 
 # Other relative periods are not supported, and must never be silently ignored.
 RELATIVE = re.compile(r"\b(last|past|previous|sidustu|sidasta|sidastlid|ago|fyrir \w+ arum)\b")
+
+RELATIVE_MESSAGE = Clarification(
+    "Ég get ekki enn svarað um afstæð tímabil eins og þetta. Tilgreindu ár eða mánuð, "
+    "til dæmis „2016“ eða „september 2026“.",
+    "I cannot yet answer about relative periods like this one. Please name a year or a "
+    "month, for example “2016” or “September 2026”.",
+)
+ONE_PERIOD = Clarification(
+    "Tilgreindu eitt tímabil, til dæmis „2016“.", "Please name one period, for example “2016”."
+)
+
+
+def name_spans(text: str) -> str:
+    """Spell named spans as years: "the last decade" is "last 10 years"."""
+    return DECADE.sub("last 10 years", CENTURY.sub("last 100 years", text))
+
+
+def without_periods(question: str) -> str:
+    """The question without the relative periods the rules read ("síðustu öld", "fyrir
+    áratug"), so that their words are not mistaken for a topic or restriction."""
+    return AGO.sub(" ", CENTURY.sub(" ", normalize(question)))
+
+
+def _years_ago(text: str) -> tuple[int | None, str]:
+    """How many years back a point in time is ("a decade ago": 10), and the rest of the text."""
+    match = AGO.search(text)
+    if match is None:
+        return None, text
+    count, unit = match[1] or match[3], match[2] or match[4]
+    number = 1 if count in (None, "a", "an") else int(count) if count.isdigit() else NUMBERS[count]
+    years = number * (10 if unit.startswith(("decade", "aratug")) else 1)
+    return years, text[: match.start()] + text[match.end() :]
 
 
 def normalize(text: str) -> str:
@@ -164,7 +208,8 @@ def interpret(question: str) -> Interpretation | Clarification:
     if not is_cpi and not is_population:
         return Clarification(NOT_FOUND["is"], NOT_FOUND["en"], recognized=False)
 
-    text = TWELVE_MONTHS.sub("12 manada", DECADE.sub("last 10 years", text))
+    text = TWELVE_MONTHS.sub("12 manada", name_spans(text))
+    years_ago, text = _years_ago(text)
     last_year = bool(LAST_YEAR.search(text))
     span = SPAN.search(text)
     months_back = None
@@ -174,12 +219,7 @@ def interpret(question: str) -> Interpretation | Clarification:
         months_back = count if in_months else 12 * count
         text = text[: span.start()] + text[span.end() :]
     if RELATIVE.search(LAST_YEAR.sub("", text)):
-        return Clarification(
-            "Ég get ekki enn svarað um afstæð tímabil eins og „í síðasta mánuði“. "
-            "Tilgreindu tímabil, til dæmis „september 2026“ eða „2020 og 2025“.",
-            "I cannot yet answer about relative periods such as “last month”. "
-            "Please name the period, for example “September 2026” or “2020 and 2025”.",
-        )
+        return RELATIVE_MESSAGE
 
     if is_cpi:
         if last_year:
@@ -189,7 +229,8 @@ def interpret(question: str) -> Interpretation | Clarification:
                 "Inflation is published by month. Please name a month, "
                 "for example “inflation in December 2025”.",
             )
-        return _interpret_cpi(text, months_back)
+        point = None if years_ago is None else before_latest(12 * years_ago)
+        return _interpret_cpi(text, months_back, point)
     if months_back is not None and months_back % 12:
         return Clarification(
             "Mannfjöldi er birtur eftir árum. Tilgreindu fjölda ára, til dæmis „síðustu fimm ár“.",
@@ -197,14 +238,23 @@ def interpret(question: str) -> Interpretation | Clarification:
             "“the last five years”.",
         )
     return _interpret_population(
-        text, last_year, None if months_back is None else months_back // 12
+        text,
+        last_year,
+        None if months_back is None else months_back // 12,
+        None if years_ago is None else before_latest(years_ago),
     )
 
 
-def _interpret_cpi(text: str, months_back: int | None = None) -> Interpretation | Clarification:
+def _interpret_cpi(
+    text: str, months_back: int | None = None, point: str | None = None
+) -> Interpretation | Clarification:
     periods = _months(text)
     if isinstance(periods, Clarification):
         return periods
+    if point:
+        if periods:
+            return ONE_PERIOD
+        periods = [point]
 
     if _has_any(text, ("manadarbreyting", "milli manada", "monthly", "month on month")):
         measure = "change_M"
@@ -230,19 +280,29 @@ def _interpret_cpi(text: str, months_back: int | None = None) -> Interpretation 
 
 
 def _interpret_population(
-    text: str, last_year: bool, years_back: int | None = None
+    text: str, last_year: bool, years_back: int | None = None, point: str | None = None
 ) -> Interpretation | Clarification:
     years = _years(text)
-    if last_year and not years:
-        # The latest population figure is for 1 January of the current year.
-        years = [before_latest(1)]
+    grows = _has_any(text, ("fjolg", "growth", "increase", "grew")) or bool(CHANGE.search(text))
+    components = _has_any(text, ("adflutt", "brottflutt", "migration", "faeddir umfram", "natural"))
+    if point:
+        if years:
+            return ONE_PERIOD
+        years = [point]
+    elif last_year and not years:
+        if grows and not components:
+            # Change over the last year is between the two latest 1 January figures, shown
+            # as both figures and the change, as for longer spans.
+            years_back = 1
+        else:
+            # The latest population figure is for 1 January of the current year.
+            years = [before_latest(1)]
     if len(years) > 2:
         return Clarification(
             "Ég get borið saman tvö ár í einu.", "I can compare two years at a time."
         )
 
     spans = _spans(text, years) or (years_back is not None and not years)
-    grows = _has_any(text, ("fjolg", "growth", "increase", "grew")) or bool(CHANGE.search(text))
 
     if _has_any(text, ("adflutt", "brottflutt", "migration")):
         measure = "3"
@@ -370,6 +430,7 @@ CURATED_STEMS = (
     "current", "today", "dag", "latest", "nyjust", "arin", "arid", "arum", "year", "manud",
     "manad", "sidust", "sidast", "last", "past", "previous", "fyrra", "ago", "between", "and",
     "than", "faster", "slower", "rise", "rose", "fell", "fall", "hvenaer", "decade", "aratug",
+    "centur", "evolv",
 )  # fmt: skip
 
 

@@ -10,6 +10,7 @@ from talnaspor.interpret import (
     interpret,
     narrow,
     normalize,
+    without_periods,
 )
 
 
@@ -199,8 +200,9 @@ def test_recognizes_inflected_population_words(question: str, selections: dict[s
             Interpretation("population", {"Ár": before_latest(1), "Eining": "0"}),
         ),
         (
+            # Change over the last year shows both 1 January figures, as longer spans do.
             "Hvernig breyttist mannfjöldinn í fyrra?",
-            Interpretation("population", {"Ár": before_latest(1), "Eining": "2"}),
+            Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(1)),
         ),
         (
             "Inflation over the last 12 months",
@@ -224,8 +226,7 @@ def test_interprets_last_year_and_wording(question: str, expected: Interpretatio
     ("question", "message"),
     [
         ("What was inflation last year?", "Tilgreindu mánuð"),
-        ("Hver var mannfjöldinn fyrir tíu árum?", "afstæð tímabil"),
-        ("What was the population 10 years ago?", "afstæð tímabil"),
+        ("What was inflation two months ago?", "afstæð tímabil"),
         ("Hver var verðbólgan í síðasta mánuði?", "afstæð tímabil"),
     ],
 )
@@ -248,7 +249,7 @@ def test_never_ignores_relative_periods(question: str, message: str) -> None:
         "Verðbólga í janúar 2024, 2025 og 2026",
         "Hver var breytingin á vísitölu neysluverðs í september 2026?",
         "What was inflation last year?",
-        "Hver var mannfjöldinn fyrir tíu árum?",
+        "What was inflation two months ago?",
         "Population over the last 3 months",
     ],
 )
@@ -401,3 +402,97 @@ def test_narrows_the_previous_question_by_a_follow_up(
 )
 def test_recognizes_only_the_defined_follow_up_forms(question: str) -> None:
     assert follow_up(question) is None
+
+
+POPULATION_NOW = {"Ár": LATEST, "Eining": "0"}
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        # A comparison interval: both endpoints, the change and the percent change.
+        (
+            "How has the population of Iceland changed over the last century?",
+            Interpretation("population", POPULATION_NOW, before_latest(100)),
+        ),
+        (
+            "How has Iceland's population evolved over the past century?",
+            Interpretation("population", POPULATION_NOW, before_latest(100)),
+        ),
+        (
+            "Hvernig hefur mannfjöldinn breyst síðustu öld?",
+            Interpretation("population", POPULATION_NOW, before_latest(100)),
+        ),
+        (
+            "Hvernig hefur mannfjöldinn breyst síðustu hundrað árin?",
+            Interpretation("population", POPULATION_NOW, before_latest(100)),
+        ),
+        (
+            "How has the population of Iceland changed over the last year?",
+            Interpretation("population", POPULATION_NOW, before_latest(1)),
+        ),
+        (
+            "Hvernig hefur mannfjöldinn breyst síðasta árið?",
+            Interpretation("population", POPULATION_NOW, before_latest(1)),
+        ),
+        # A point in time: one figure, that many years before the latest.
+        (
+            "What was the population of Iceland a decade ago?",
+            Interpretation("population", {"Ár": before_latest(10), "Eining": "0"}),
+        ),
+        (
+            "What was the population 10 years ago?",
+            Interpretation("population", {"Ár": before_latest(10), "Eining": "0"}),
+        ),
+        (
+            "Hver var mannfjöldinn fyrir áratug?",
+            Interpretation("population", {"Ár": before_latest(10), "Eining": "0"}),
+        ),
+        (
+            "Hver var mannfjöldinn fyrir tíu árum?",
+            Interpretation("population", {"Ár": before_latest(10), "Eining": "0"}),
+        ),
+        (
+            "What was inflation ten years ago?",
+            Interpretation(
+                "cpi", {"Mánuður": before_latest(120), "Vísitala": "CPI", "Liður": "change_A"}
+            ),
+        ),
+        # Since a point in time: a comparison from it to the latest.
+        (
+            "How has the population changed since a decade ago?",
+            Interpretation("population", POPULATION_NOW, before_latest(10)),
+        ),
+    ],
+)
+def test_tells_points_in_time_from_intervals(question: str, expected: Interpretation) -> None:
+    assert interpret(question) == expected
+
+
+def test_asks_for_one_period_when_two_are_named() -> None:
+    result = interpret("What was the population in 2020, ten years ago?")
+
+    assert isinstance(result, Clarification)
+    assert "one period" in result.message_en
+
+
+def test_explains_an_unsupported_relative_period_without_a_misleading_example() -> None:
+    result = interpret("What was inflation two months ago?")
+
+    assert isinstance(result, Clarification)
+    assert "last month" not in result.message_en
+    assert "afstæð tímabil" in result.message
+
+
+@pytest.mark.parametrize(
+    ("question", "covered"),
+    [
+        ("Hvernig hefur mannfjöldinn breyst síðustu öld?", True),
+        ("Hver var mannfjöldinn fyrir áratug?", True),
+        ("What was the population of Iceland a decade ago?", True),
+        # "Old" outside "síðustu öld" is not a period: average age is another measure.
+        ("How old is Iceland's population?", False),
+    ],
+)
+def test_reads_relative_periods_as_periods_not_topics(question: str, covered: bool) -> None:
+    assert curated_terms_cover(question_words(without_periods(question))) is covered

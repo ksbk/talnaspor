@@ -46,13 +46,13 @@ from talnaspor.catalog import (
 )
 from talnaspor.interpret import (
     CHANGE,
-    DECADE,
     MONTH_WORDS,
     NUMBERS,
     SINCE,
     SPAN,
     Clarification,
     month_periods,
+    name_spans,
     normalize,
 )
 from talnaspor.jsonstat import decode_jsonstat
@@ -609,7 +609,7 @@ def comparison_span(question: str) -> Span | None:
         return Span(years[0], years[1])
     # A span of years ("síðustu fimm ár") is a comparison even without a word for change,
     # as in the curated answers.
-    text = DECADE.sub("last 10 years", text)
+    text = name_spans(text)
     span = SPAN.search(text)
     if span and not years and not span[2].startswith(("man", "month")):
         count = int(span[1]) if span[1].isdigit() else NUMBERS[span[1]]
