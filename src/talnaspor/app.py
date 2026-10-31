@@ -1,5 +1,6 @@
 """FastAPI application exposing Talnaspor's chat page and question endpoint."""
 
+import logging
 import time
 from pathlib import Path
 from typing import Annotated, Literal
@@ -25,6 +26,7 @@ from talnaspor.pxweb import RateLimited
 from talnaspor.validation import UnavailableValue
 
 app = FastAPI(title="Talnaspor")
+logger = logging.getLogger(__name__)
 
 INDEX = Path(__file__).parent / "static" / "index.html"
 
@@ -35,6 +37,7 @@ MESSAGES: dict[str, dict[str, str]] = {
             "fjalla líklega um efnið:"
         ),
         "error": "Ekki náðist samband við Hagstofu Íslands. Reyndu aftur síðar.",
+        "unexpected": "Óvænt villa kom upp í Talnaspor. Reyndu aftur.",
         "rate_limited": (
             "Hagstofa Íslands takmarkar fjölda fyrirspurna í augnablikinu. "
             "Reyndu aftur eftir um það bil mínútu."
@@ -53,6 +56,7 @@ MESSAGES: dict[str, dict[str, str]] = {
             "probably cover it:"
         ),
         "error": "Statistics Iceland could not be reached. Please try again later.",
+        "unexpected": "Talnaspor ran into an unexpected error. Please try again.",
         "rate_limited": (
             "Statistics Iceland is limiting requests right now. Please try again in about a minute."
         ),
@@ -96,7 +100,9 @@ class AskResponse(BaseModel):
     tables: list[TableHit] | None = None
     # Why a refusal happened: the period or category is outside the table, the figure
     # is not published, or the data could not be verified for another reason.
-    reason: Literal["unavailable", "unpublished", "unverified", "rate_limited"] | None = None
+    reason: (
+        Literal["unavailable", "unpublished", "unverified", "rate_limited", "unexpected"] | None
+    ) = None
     detail: str | None = None
     elapsed_ms: int
 
@@ -134,9 +140,9 @@ def index() -> FileResponse:
 @app.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest) -> AskResponse | JSONResponse:
     """Answer a statistical question from verified PX-Web data, or explain why not."""
-    response = respond_to(request.question, request.lang)
+    response = safely_respond_to(request.question, request.lang)
     if response.status == "error":
-        status_code = 503 if response.reason == "rate_limited" else 502
+        status_code = {"rate_limited": 503, "unexpected": 500}.get(response.reason or "", 502)
         return JSONResponse(status_code=status_code, content=response.model_dump(mode="json"))
     return response
 
@@ -149,10 +155,31 @@ def ask_batch(request: AskBatchRequest) -> AskBatchResponse:
     failure to reach Statistics Iceland, does not fail the others.
     """
     started = time.perf_counter()
-    answers = [respond_to(question, request.lang) for question in request.questions]
+    answers = [safely_respond_to(question, request.lang) for question in request.questions]
     return AskBatchResponse(
         answers=answers, elapsed_ms=round((time.perf_counter() - started) * 1000)
     )
+
+
+def safely_respond_to(question: str, lang: Lang = "is") -> AskResponse:
+    """Answer one question; an unexpected failure becomes a JSON error, never plain text.
+
+    Without this, FastAPI answers an unhandled exception with a plain-text 500, which
+    the page cannot read and reports as "could not reach the server".
+    """
+    started = time.perf_counter()
+    try:
+        return respond_to(question, lang)
+    except Exception as error:
+        logger.exception("Unexpected error answering %r", question)
+        return AskResponse(
+            status="error",
+            reason="unexpected",
+            question=question,
+            message=MESSAGES[lang]["unexpected"],
+            detail=type(error).__name__,
+            elapsed_ms=round((time.perf_counter() - started) * 1000),
+        )
 
 
 def respond_to(question: str, lang: Lang = "is") -> AskResponse:

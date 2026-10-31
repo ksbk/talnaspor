@@ -322,3 +322,36 @@ def test_never_answers_qualified_questions_with_national_headline_figures(
     answer.assert_not_called()
     compare.assert_not_called()
     assert body["status"] in ("suggestions", "clarification")
+
+
+def test_reports_an_unexpected_error_as_json_not_plain_text() -> None:
+    # A plain-text 500 is unreadable to the page, which then wrongly reports that it
+    # could not reach the server.
+    with patch("talnaspor.app.answer", side_effect=RuntimeError("boom")):
+        response = TestClient(app, raise_server_exceptions=False).post(
+            "/ask", json={"question": "What is the population of Iceland in 2026?", "lang": "en"}
+        )
+
+    assert response.status_code == 500
+    assert response.headers["content-type"].startswith("application/json")
+    body = response.json()
+    assert body["status"] == "error" and body["reason"] == "unexpected"
+    assert body["message"].startswith("Talnaspor ran into an unexpected error")
+    assert body["detail"] == "RuntimeError"
+
+
+def test_keeps_a_batch_going_after_an_unexpected_error() -> None:
+    with patch("talnaspor.app.answer", side_effect=[RuntimeError("boom"), POPULATION]):
+        response = client.post(
+            "/ask/batch",
+            json={"questions": ["Hver er verðbólgan núna?", "Hvað búa margir á Íslandi?"]},
+        )
+
+    assert response.status_code == 200
+    assert [item["status"] for item in response.json()["answers"]] == ["error", "answer"]
+
+
+def test_page_tells_server_errors_apart_from_lost_connections() -> None:
+    page = client.get("/").text
+
+    assert "badResponse" in page and "offline" in page

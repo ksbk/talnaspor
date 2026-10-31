@@ -260,6 +260,7 @@
       loading: "Sæki gögn frá Hagstofu Íslands…",
       invalid: "Skrifaðu spurningu (að hámarki 500 stafir).",
       offline: "Ekki náðist samband við þjóninn. Reyndu aftur.",
+      badResponse: "Þjónninn skilaði villu (HTTP {status}). Reyndu aftur.",
     },
     en: {
       subtitle: "Ask about Icelandic statistics in English or Icelandic. Answers come straight from Statistics Iceland's official data.",
@@ -296,6 +297,7 @@
       loading: "Fetching data from Statistics Iceland…",
       invalid: "Please write a question (at most 500 characters).",
       offline: "Could not reach the server. Please try again.",
+      badResponse: "The server returned an error (HTTP {status}). Please try again.",
     },
   };
 
@@ -511,7 +513,16 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, lang }),
       });
-      const body = await response.json();
+      // A reply that is not JSON (a proxy page, a crash) is a server error, not a lost
+      // connection; say which, with its status, so the cause can be found.
+      let body;
+      try {
+        body = await response.json();
+      } catch (error) {
+        const message = t("badResponse").replace("{status}", response.status);
+        render(reply, { status: "error", message, elapsed_ms: 0 }, question);
+        return;
+      }
       if (response.status === 422) {
         render(reply, { status: "clarification", message: t("invalid"), elapsed_ms: 0 }, question);
       } else {
