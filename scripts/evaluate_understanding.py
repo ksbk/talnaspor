@@ -39,7 +39,9 @@ def recorded(send: Any, method: str, offline: bool) -> Any:
 
     def wrapper(url: str, **kwargs: Any) -> requests.Response:
         global live_requests
-        key = json.dumps([method, url, kwargs.get("json")], sort_keys=True, ensure_ascii=False)
+        # Talnaspor sends queries as a JSON string in "data"; both forms identify the request.
+        body = kwargs.get("data") or json.dumps(kwargs.get("json"), sort_keys=True)
+        key = json.dumps([method, url, body], ensure_ascii=False)
         path = RECORDINGS / f"{hashlib.sha256(key.encode()).hexdigest()[:24]}.json"
         if path.exists():
             saved = json.loads(path.read_text(encoding="utf-8"))
