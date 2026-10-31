@@ -11,13 +11,16 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from talnaspor.answer import Answer, Comparison, Lang, answer, compare, format_period
-from talnaspor.catalog import TableHit, question_words, search, topic_word
+from talnaspor.catalog import TableHit, question_words, search, table, topic_word
 from talnaspor.interpret import (
     NOT_FOUND,
+    POPULATION_WORDS,
     Clarification,
     Interpretation,
     curated_terms_cover,
+    follow_up,
     interpret,
+    narrow,
     normalize,
 )
 from talnaspor.jsonstat import MissingValue
@@ -49,6 +52,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         ),
         "unpublished": "Hagstofa Íslands hefur ekki birt þessa tölu (merkt „..“ í töflunni).",
         "missing": "Þessi tala er ekki tiltæk í töflu Hagstofu Íslands.",
+        "no_context": (
+            "Ég veit ekki við hvaða spurningu þetta á. Spyrðu allrar spurningarinnar, til "
+            "dæmis „Hvert var atvinnuleysi kvenna árið 2025?“"
+        ),
     },
     "en": {
         "suggestions": (
@@ -68,6 +75,10 @@ MESSAGES: dict[str, dict[str, str]] = {
             "Statistics Iceland has not published this figure (marked “..” in the table)."
         ),
         "missing": "This figure is not available in Statistics Iceland's table.",
+        "no_context": (
+            "I don't know which question this follows. Please ask the whole question, for "
+            "example “What was the unemployment rate for women in 2025?”"
+        ),
     },
 }
 
@@ -81,6 +92,8 @@ MAX_BATCH = 10
 class AskRequest(BaseModel):
     question: Question
     lang: Lang = "is"
+    # The question before this one, as understood, for follow-ups such as "What about women?".
+    previous: Question | None = None
 
 
 class AskBatchRequest(BaseModel):
@@ -104,12 +117,21 @@ class AskResponse(BaseModel):
         Literal["unavailable", "unpublished", "unverified", "rate_limited", "unexpected"] | None
     ) = None
     detail: str | None = None
+    # A follow-up is answered as the previous question narrowed by it; this is that question.
+    understood_as: str | None = None
     elapsed_ms: int
 
 
 class AskBatchResponse(BaseModel):
     answers: list[AskResponse]
     elapsed_ms: int
+
+
+# Statistics Iceland's population by sex and age: for a population question it is tried
+# first, so that a table counting people another way (by registered religious affiliation,
+# with a different total) cannot answer instead. It still answers only if the planner can
+# settle every word of the question from it.
+POPULATION_TABLE = "Ibuar/mannfjoldi/1_yfirlit/Yfirlit_mannfjolda/MAN00101.px"
 
 
 def candidates(question: str, tables: list[TableHit]) -> list[TableHit]:
@@ -126,7 +148,10 @@ def candidates(question: str, tables: list[TableHit]) -> list[TableHit]:
         # On equal scores, a shorter title is usually the more general table.
         return sorted(hits, key=lambda hit: (-hit.score, len(hit.title)))
 
-    ordered = ranked(tables[:5]) + ranked(by_topic) + ranked(tables[5:])
+    text = normalize(question)
+    population = table(POPULATION_TABLE) if any(w in text for w in POPULATION_WORDS) else None
+    ordered = [population] if population else []
+    ordered += ranked(tables[:5]) + ranked(by_topic) + ranked(tables[5:])
     unique = {hit.api_url: hit for hit in reversed(ordered)}
     return sorted(unique.values(), key=ordered.index)
 
@@ -140,7 +165,7 @@ def index() -> FileResponse:
 @app.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest) -> AskResponse | JSONResponse:
     """Answer a statistical question from verified PX-Web data, or explain why not."""
-    response = safely_respond_to(request.question, request.lang)
+    response = safely_respond_to(request.question, request.lang, request.previous)
     if response.status == "error":
         status_code = {"rate_limited": 503, "unexpected": 500}.get(response.reason or "", 502)
         return JSONResponse(status_code=status_code, content=response.model_dump(mode="json"))
@@ -161,15 +186,30 @@ def ask_batch(request: AskBatchRequest) -> AskBatchResponse:
     )
 
 
-def safely_respond_to(question: str, lang: Lang = "is") -> AskResponse:
+def safely_respond_to(question: str, lang: Lang = "is", previous: str | None = None) -> AskResponse:
     """Answer one question; an unexpected failure becomes a JSON error, never plain text.
 
     Without this, FastAPI answers an unhandled exception with a plain-text 500, which
     the page cannot read and reports as "could not reach the server".
+
+    A follow-up ("What about women?") is answered as the previous question narrowed by
+    it, and the reply says so; without a previous question, it is never guessed at.
     """
     started = time.perf_counter()
     try:
-        return respond_to(question, lang)
+        restriction = follow_up(question)
+        if restriction is None:
+            return respond_to(question, lang)
+        if not previous:
+            return AskResponse(
+                status="clarification",
+                question=question,
+                message=MESSAGES[lang]["no_context"],
+                elapsed_ms=round((time.perf_counter() - started) * 1000),
+            )
+        understood = narrow(previous, restriction)
+        response = respond_to(understood, lang)
+        return response.model_copy(update={"question": question, "understood_as": understood})
     except Exception as error:
         logger.exception("Unexpected error answering %r", question)
         return AskResponse(

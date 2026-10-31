@@ -7,7 +7,14 @@ import requests
 
 from talnaspor.answer import Answer
 from talnaspor.catalog import TableHit
-from talnaspor.planner import Choice, _accounts_for, _time_variable, plan_answer, select
+from talnaspor.planner import (
+    Choice,
+    _accounts_for,
+    _counts_together,
+    _time_variable,
+    plan_answer,
+    select,
+)
 from talnaspor.pxweb import PXMetadata
 
 URL = "https://px.hagstofa.is/pxis/api/v1/is/Samfelag/vinnumarkadur/VIN01002.px"
@@ -127,6 +134,40 @@ def test_requires_the_table_to_account_for_every_question_word() -> None:
     assert not _accounts_for({"atvinnuleysi", "reykjavik"}, [], metadata(), hit())
 
 
+def test_accounts_for_words_in_the_english_title_from_metadata() -> None:
+    # The catalog lacks some English titles; the table's English metadata has them.
+    untitled = hit().model_copy(update={"title_en": None})
+
+    assert not _accounts_for({"activity"}, [], metadata(), untitled)
+    assert _accounts_for({"activity"}, [], metadata(), untitled, None, "Activity rate 1991-2025")
+
+
+def stays(title: str, units: list[str] | None = None) -> PXMetadata:
+    variables = [{"code": "Mánuður", "text": "Mánuður", "values": ["2025M08"]}]
+    if units:
+        variables.append(
+            {"code": "Eining", "text": "Eining", "values": ["0", "1"], "valueTexts": units}
+        )
+    return PXMetadata.model_validate({"title": title, "variables": variables})
+
+
+def test_skips_a_table_that_sums_what_the_question_names_one_of() -> None:
+    # Hotels and guesthouses together do not answer a question about hotels.
+    joined = stays("Gistinætur á hótelum og gistiheimilum 2017-")
+    untitled = hit().model_copy(update={"title_en": None})
+
+    assert _counts_together({"hotel", "gistinaetur"}, [], joined, untitled, None)
+    assert not _counts_together({"hotelum", "gistiheimilum"}, [], joined, untitled, None)
+    assert not _counts_together({"gistinaetur"}, [], joined, untitled, None)
+
+
+def test_keeps_a_table_whose_dimension_separates_the_joined_things() -> None:
+    separate = stays("Gistinætur og gestakomur á hótelum", ["Gestakomur", "Gistinætur"])
+    untitled = hit().model_copy(update={"title_en": None})
+
+    assert not _counts_together({"gistinaetur", "hotelum"}, [], separate, untitled, None)
+
+
 def test_skips_tables_restricted_to_a_group_the_question_does_not_name() -> None:
     title = "Námsmenn - Atvinnuþátttaka, atvinnuleysi 2003-2025"
 
@@ -169,6 +210,28 @@ def test_answers_with_labels_unit_and_source() -> None:
     assert result.period == "2025"
     assert result.labels["Aldur"] == "Alls"
     assert result.page_url == hit().page_url
+
+
+@pytest.mark.parametrize(
+    "question", ["Atvinnuleysi kvenna 1. janúar 2025", "Unemployment of women on 1 January 2025"]
+)
+def test_reads_the_first_of_january_as_the_year(question: str) -> None:
+    # Not the month 2025M01, which an annual table lacks, and "1" names no category.
+    data = response(
+        {
+            "Ár": ("1", "2025"),
+            "Kyn": ("2", "Konur"),
+            "Aldur": ("0", "Alls"),
+            "Eining": ("0", "Atvinnuleysi"),
+        },
+        4.3,
+    )
+
+    result, _ = run(question, data)
+
+    assert isinstance(result, Answer)
+    assert result.period == "2025"
+    assert result.selections == {"Ár": "1", "Kyn": "2", "Aldur": "0", "Eining": "0"}
 
 
 def test_skips_series_that_have_stopped() -> None:

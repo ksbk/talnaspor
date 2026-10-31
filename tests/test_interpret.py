@@ -6,7 +6,9 @@ from talnaspor.interpret import (
     Clarification,
     Interpretation,
     curated_terms_cover,
+    follow_up,
     interpret,
+    narrow,
     normalize,
 )
 
@@ -287,6 +289,23 @@ def test_every_clarification_has_english_wording(question: str) -> None:
             "Mannfjöldi síðustu 20 ár",
             Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(20)),
         ),
+        (
+            "How has the population of Iceland changed over the last decade?",
+            Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(10)),
+        ),
+        (
+            # "Síðasta ár" (last year) is a prefix of this, and must not match it.
+            "Hvernig hefur mannfjöldinn breyst síðasta áratuginn?",
+            Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(10)),
+        ),
+        (
+            "Inflation over the past decade",
+            Interpretation(
+                "cpi",
+                {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"},
+                before_latest(120),
+            ),
+        ),
     ],
 )
 def test_compares_over_relative_spans(question: str, expected: Interpretation) -> None:
@@ -311,7 +330,73 @@ def test_keeps_years_outside_the_usual_range() -> None:
         ("Hver var verðbólgan á matvörum?", False),
         ("What is the inflation rate in Norway?", False),
         ("Hver er meðalaldur íbúa á Íslandi?", False),
+        ("How has the population of Iceland changed over the last decade?", True),
+        ("Hvernig hefur mannfjöldinn breyst síðasta áratuginn?", True),
     ],
 )
 def test_knows_which_words_the_curated_answers_cover(question: str, covered: bool) -> None:
     assert curated_terms_cover(question_words(question)) is covered
+
+
+@pytest.mark.parametrize(
+    ("question", "previous", "understood"),
+    [
+        (
+            "What about women?",
+            "What is the population of Iceland in 2026?",
+            "What is the population of Iceland in 2026, women?",
+        ),
+        (
+            # A restriction the previous question states is replaced, not added.
+            "What about men?",
+            "What was the unemployment rate for women in 2025?",
+            "What was the unemployment rate for men in 2025?",
+        ),
+        (
+            "And in 2020?",
+            "What was the unemployment rate for women in 2025?",
+            "What was the unemployment rate for women in 2020?",
+        ),
+        (
+            "En hjá körlum?",
+            "Hvert var atvinnuleysi árið 2025?",
+            "Hvert var atvinnuleysi árið 2025, körlum?",
+        ),
+        (
+            "Og árið 2024?",
+            "Hvert var atvinnuleysi kvenna árið 2025?",
+            "Hvert var atvinnuleysi kvenna árið 2024?",
+        ),
+        (
+            "En í Reykjavík?",
+            "Hvað búa margir á Íslandi?",
+            "Hvað búa margir á Íslandi, í Reykjavík?",
+        ),
+        (
+            "And for ages 16-24?",
+            "What was the unemployment rate in 2024?",
+            "What was the unemployment rate in 2024, ages 16-24?",
+        ),
+    ],
+)
+def test_narrows_the_previous_question_by_a_follow_up(
+    question: str, previous: str, understood: str
+) -> None:
+    restriction = follow_up(question)
+
+    assert restriction is not None
+    assert narrow(previous, restriction) == understood
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # A new topic is a question of its own, not a restriction of the previous one.
+        "What about unemployment?",
+        "Hver er verðbólgan?",
+        "And how many people live in Iceland?",
+        "Mannfjöldi kvenna 2026",
+    ],
+)
+def test_recognizes_only_the_defined_follow_up_forms(question: str) -> None:
+    assert follow_up(question) is None

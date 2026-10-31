@@ -261,6 +261,7 @@
       invalid: "Skrifaðu spurningu (að hámarki 500 stafir).",
       offline: "Ekki náðist samband við þjóninn. Reyndu aftur.",
       badResponse: "Þjónninn skilaði villu (HTTP {status}). Reyndu aftur.",
+      understoodAs: "Skilið sem framhald fyrri spurningar:",
     },
     en: {
       subtitle: "Ask about Icelandic statistics in English or Icelandic. Answers come straight from Statistics Iceland's official data.",
@@ -298,6 +299,7 @@
       invalid: "Please write a question (at most 500 characters).",
       offline: "Could not reach the server. Please try again.",
       badResponse: "The server returned an error (HTTP {status}). Please try again.",
+      understoodAs: "Understood as a follow-up to the previous question:",
     },
   };
 
@@ -306,6 +308,9 @@
   const log = document.getElementById("log");
   const examples = document.getElementById("examples");
   let lang = "is";
+  // The last question as the server understood it, which a follow-up such as
+  // "What about women?" narrows.
+  let lastQuestion = null;
 
   function t(key) {
     return TEXT[lang][key];
@@ -467,10 +472,13 @@
     }
   }
 
-  function render(reply, body, question) {
+  function render(reply, body, question, previous) {
     reply.className = "reply " + body.status;
     reply.removeAttribute("aria-busy");
     reply.textContent = "";
+    if (body.understood_as) {
+      reply.append(element("p", "meta", t("understoodAs") + " “" + body.understood_as + "”"));
+    }
     if (body.status === "suggestions") {
       renderSuggestions(reply, body);
       return;
@@ -483,18 +491,18 @@
     reply.append(element("p", "sentence", body.message));
     if (body.detail) reply.append(details(t("more"), body.detail));
     reply.append(element("p", "meta", t("time") + " " + body.elapsed_ms + " ms"));
-    if (body.status === "error") reply.append(retry(reply, question));
+    if (body.status === "error") reply.append(retry(reply, question, previous));
   }
 
   // Errors (Statistics Iceland unreachable or limiting requests) can be retried in place.
-  function retry(reply, question) {
+  function retry(reply, question, previous) {
     const button = element("button", "retry", t("retry"));
     button.type = "button";
-    button.addEventListener("click", () => ask(question, reply));
+    button.addEventListener("click", () => ask(question, reply, previous));
     return button;
   }
 
-  async function ask(question, existing) {
+  async function ask(question, existing, previous = lastQuestion) {
     let reply = existing;
     if (!reply) {
       const exchange = element("article", "exchange");
@@ -511,7 +519,7 @@
       const response = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, lang }),
+        body: JSON.stringify(previous ? { question, lang, previous } : { question, lang }),
       });
       // A reply that is not JSON (a proxy page, a crash) is a server error, not a lost
       // connection; say which, with its status, so the cause can be found.
@@ -520,19 +528,20 @@
         body = await response.json();
       } catch (error) {
         const message = t("badResponse").replace("{status}", response.status);
-        render(reply, { status: "error", message, elapsed_ms: 0 }, question);
+        render(reply, { status: "error", message, elapsed_ms: 0 }, question, previous);
         return;
       }
       if (response.status === 422) {
         render(reply, { status: "clarification", message: t("invalid"), elapsed_ms: 0 }, question);
       } else {
-        render(reply, body, question);
+        lastQuestion = body.understood_as || question;
+        render(reply, body, question, previous);
       }
     } catch (error) {
       reply.className = "reply error";
       reply.removeAttribute("aria-busy");
       reply.textContent = t("offline");
-      reply.append(retry(reply, question));
+      reply.append(retry(reply, question, previous));
     }
   }
 

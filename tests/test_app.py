@@ -6,7 +6,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from talnaspor.answer import LATEST, Answer
-from talnaspor.app import app
+from talnaspor.app import POPULATION_TABLE, AskResponse, app, candidates
 from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import Choice
 from talnaspor.pxweb import PXMetadata, RateLimited
@@ -234,7 +234,7 @@ def test_serves_both_languages_in_the_page() -> None:
     page = client.get("/").text
 
     assert 'data-lang="is"' in page and 'data-lang="en"' in page
-    assert "JSON.stringify({ question, lang })" in page
+    assert "{ question, lang }" in page
 
 
 def test_explains_a_period_outside_the_table() -> None:
@@ -355,3 +355,68 @@ def test_page_tells_server_errors_apart_from_lost_connections() -> None:
     page = client.get("/").text
 
     assert "badResponse" in page and "offline" in page
+
+
+def test_answers_a_follow_up_as_the_previous_question_narrowed() -> None:
+    def fake(question: str, lang: str = "is") -> AskResponse:
+        return AskResponse(status="clarification", question=question, message="", elapsed_ms=0)
+
+    with patch("talnaspor.app.respond_to", side_effect=fake) as respond_to:
+        body = client.post(
+            "/ask",
+            json={
+                "question": "What about men?",
+                "previous": "What was the unemployment rate for women in 2025?",
+                "lang": "en",
+            },
+        ).json()
+
+    respond_to.assert_called_once_with("What was the unemployment rate for men in 2025?", "en")
+    assert body["question"] == "What about men?"
+    assert body["understood_as"] == "What was the unemployment rate for men in 2025?"
+
+
+@pytest.mark.parametrize("lang", ["is", "en"])
+def test_never_guesses_what_a_follow_up_without_context_refers_to(lang: str) -> None:
+    with patch("talnaspor.app.respond_to") as respond_to:
+        body = client.post("/ask", json={"question": "En konur?", "lang": lang}).json()
+
+    assert body["status"] == "clarification"
+    assert body["understood_as"] is None
+    respond_to.assert_not_called()
+
+
+def test_treats_a_question_of_its_own_as_new_despite_a_previous_one() -> None:
+    def fake(question: str, lang: str = "is") -> AskResponse:
+        return AskResponse(status="clarification", question=question, message="", elapsed_ms=0)
+
+    with patch("talnaspor.app.respond_to", side_effect=fake) as respond_to:
+        client.post(
+            "/ask",
+            json={"question": "Hver er verðbólgan?", "previous": "Hve margir búa á Íslandi?"},
+        )
+
+    respond_to.assert_called_once_with("Hver er verðbólgan?", "is")
+
+
+def test_page_sends_the_previous_question_and_shows_the_follow_up() -> None:
+    page = client.get("/").text
+
+    assert "previous" in page and "understood_as" in page and "understoodAs" in page
+
+
+@pytest.mark.parametrize(
+    "question", ["Population of women in 2026", "Hve margar konur bjuggu á Íslandi 2026?"]
+)
+def test_tries_the_primary_population_table_first_for_population_questions(question: str) -> None:
+    # Otherwise the table of registered religious affiliation, whose total differs from
+    # the population, answers first.
+    tried = candidates(question, [])
+
+    assert tried[0].api_url.endswith("/" + POPULATION_TABLE)
+
+
+def test_does_not_try_the_population_table_for_other_topics() -> None:
+    tried = candidates("Atvinnuleysi kvenna 2025", [])
+
+    assert all(not hit.api_url.endswith("/" + POPULATION_TABLE) for hit in tried)

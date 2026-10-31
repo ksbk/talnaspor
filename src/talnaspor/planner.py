@@ -63,6 +63,10 @@ TOTALS = frozenset(
 )
 YEAR = re.compile(r"\b([12]\d{3})\b")
 
+# "1. janúar 2026" dates a count, such as the population, to the start of a year: it asks
+# about the year, not the month, and its "1" is not a category such as "1 árs".
+START_OF_YEAR = re.compile(r"\b(1\.? januar|1(st)? (of )?january|january 1(st)?),? (?=[12]\d{3}\b)")
+
 # General-knowledge questions that share words with statistical tables ("capital of
 # Iceland" is not about capital transfers); they get suggestions, never a figure.
 GENERAL_KNOWLEDGE = re.compile(r"\b(capital of|capital city|hofudborg)")
@@ -145,7 +149,7 @@ def plan_answer(
     answer, if there is one, or None.
     """
     choice: Choice | None = None
-    text = normalize(question)
+    text = START_OF_YEAR.sub("", normalize(question))
     years = sorted(set(YEAR.findall(text)))
     # Only a question that names a month needs a monthly period; a year alone is fine.
     names_month = any(re.search(rf"\b{word}\b", text) for word in MONTH_WORDS)
@@ -161,7 +165,7 @@ def plan_answer(
         return None
     words = question_words(question, keep=CATEGORY_WORDS) - MONTH_WORDS
     # Numbers other than the year can name categories such as "16-74 ára".
-    numbers = set(re.findall(r"\d+", normalize(question))) - set(years)
+    numbers = set(re.findall(r"\d+", text)) - set(years)
     phrases = related_phrases(question)
     weights = {word: 1.0 for word in words | numbers}
     for phrase, related in phrases:
@@ -178,9 +182,12 @@ def plan_answer(
                 continue
             english = _english(hit.api_url) if lang == "en" else None
             translated = _aligned(metadata, english)
-            if not _accounts_for(words, phrases, metadata, hit, translated):
+            title_en = english.title if english else None
+            if not _accounts_for(words, phrases, metadata, hit, translated, title_en):
                 continue
             if not _names_topic(words, phrases, metadata, hit, english):
+                continue
+            if _counts_together(words, phrases, metadata, hit, english, translated):
                 continue
             # A series that has stopped cannot answer a question about the present.
             if oldest and max(_texts(time_variable))[:4] < oldest:
@@ -341,9 +348,13 @@ def _accounts_for(
     metadata: PXMetadata,
     hit: TableHit,
     translated: dict[str, PXVariable] | None = None,
+    title_en: str | None = None,
 ) -> bool:
-    """Whether the table's titles and categories account for every word in the question."""
-    texts = [metadata.title, hit.title_en or "", *hit.folders, *hit.folders_en]
+    """Whether the table's titles and categories account for every word in the question.
+
+    The English title comes from the table's English metadata when the catalog lacks it.
+    """
+    texts = [metadata.title, hit.title_en or title_en or "", *hit.folders, *hit.folders_en]
     for variable in [*metadata.variables, *(translated or {}).values()]:
         texts.extend([variable.text, *variable.valueTexts])
     vocabulary = {word for text in texts for word in TOKEN.findall(normalize(text))}
@@ -390,6 +401,48 @@ def _names_topic(
     for _, related in phrases:
         terms.update(related)
     return any(_match(term, word) == 1.0 for term in terms for word in title_words)
+
+
+# Two words joined in a title: "hótelum og gistiheimilum", "hotels and guesthouses".
+JOINED = re.compile(r"\b([a-z]{3,}) (?:og|and) ([a-z]{3,})\b")
+
+
+def _counts_together(
+    words: set[str],
+    phrases: list[tuple[str, tuple[str, ...]]],
+    metadata: PXMetadata,
+    hit: TableHit,
+    english: PXMetadata | None,
+    translated: dict[str, PXVariable] | None = None,
+) -> bool:
+    """Whether the table counts together two things the question tells apart.
+
+    A title that joins two things ("Gistinætur á hótelum og gistiheimilum") which no
+    dimension of the table separates reports their sum, so it does not answer a question
+    that names only one of them ("hotel overnight stays"). Joined things that a dimension
+    does separate ("Gistinætur og gestakomur", with a dimension listing both) are fine.
+    """
+    separated = {
+        word
+        for variable in [*metadata.variables, *(translated or {}).values()]
+        for text in [variable.text, *variable.valueTexts]
+        for word in TOKEN.findall(normalize(text))
+    }
+    terms = set(words)
+    for _, related in phrases:
+        terms.update(related)
+
+    def named(word: str) -> bool:
+        return any(_match(term, word) == 1.0 for term in terms)
+
+    titles = [metadata.title, hit.title_en or "", english.title if english else ""]
+    for title in titles:
+        for first, second in JOINED.findall(normalize(title)):
+            if any(_match(word, known) == 1.0 for word in (first, second) for known in separated):
+                continue
+            if named(first) != named(second):
+                return True
+    return False
 
 
 def _time_variable(metadata: PXMetadata) -> PXVariable | None:

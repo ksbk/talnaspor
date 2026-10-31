@@ -133,7 +133,11 @@ SPAN = re.compile(
 
 # "The last 12 months" describes annual change, not a relative period.
 TWELVE_MONTHS = re.compile(r"\b(sidustu|last|past) 12 (manada|manudi|months)\b")
-LAST_YEAR = re.compile(r"\b(last year|previous year|i fyrra|sidasta ar|sidastlidid ar)")
+# A whole word: "síðasta ár" (last year) must not match "síðasta áratuginn" (the last decade).
+LAST_YEAR = re.compile(r"\b(last year|previous year|i fyrra|sidasta ar|sidastlidid ar)\b")
+
+# "The last decade" is the last ten years.
+DECADE = re.compile(r"\b((the )?(last|past) decade|sidasta aratug\w*)")
 
 # Other relative periods are not supported, and must never be silently ignored.
 RELATIVE = re.compile(r"\b(last|past|previous|sidustu|sidasta|sidastlid|ago|fyrir \w+ arum)\b")
@@ -160,7 +164,7 @@ def interpret(question: str) -> Interpretation | Clarification:
     if not is_cpi and not is_population:
         return Clarification(NOT_FOUND["is"], NOT_FOUND["en"], recognized=False)
 
-    text = TWELVE_MONTHS.sub("12 manada", text)
+    text = TWELVE_MONTHS.sub("12 manada", DECADE.sub("last 10 years", text))
     last_year = bool(LAST_YEAR.search(text))
     span = SPAN.search(text)
     months_back = None
@@ -365,7 +369,7 @@ CURATED_STEMS = (
     "chang", "trend", "compar", "grown", "since", "fra", "til", "sidan", "nuna", "now",
     "current", "today", "dag", "latest", "nyjust", "arin", "arid", "arum", "year", "manud",
     "manad", "sidust", "sidast", "last", "past", "previous", "fyrra", "ago", "between", "and",
-    "than", "faster", "slower", "rise", "rose", "fell", "fall", "hvenaer",
+    "than", "faster", "slower", "rise", "rose", "fell", "fall", "hvenaer", "decade", "aratug",
 )  # fmt: skip
 
 
@@ -374,3 +378,87 @@ def curated_terms_cover(words: set[str]) -> bool:
     known = (*CURATED_STEMS, *MONTH_WORDS, *NUMBERS)
     # "ár" and "ára" (year, years) are too short to be prefixes; "may" is a month.
     return all(word in {"ar", "ara", "may"} or word.startswith(known) for word in words)
+
+
+# Follow-ups that narrow the previous question, in a few fixed forms: a sex, an age group
+# or a year ("What about women?", "En hjá körlum?", "And in 2020?"), or a place
+# ("En í Reykjavík?", "And in Akureyri?"). Anything else is a question of its own.
+FOLLOW_UP = re.compile(
+    r"^(?:what about|how about|and for|and|hvad med|hvad um|en hja|en|og hja|og) (?P<rest>.+)$"
+)
+PLACE_FOLLOW_UP = re.compile(
+    r"^(?:what about|how about|and|hvad med|en|og) (?P<rest>(?:in|i|a) (?![12]\d{3}\b)\w+(?: \w+)?)$"
+)
+SEX_WORDS = frozenset(
+    {
+        "women", "woman", "female", "females", "girls", "men", "man", "male", "males", "boys",
+        "konur", "kvenna", "konum", "stulkur", "karlar", "karla", "korlum", "karlmenn",
+        "karlmanna", "drengir",
+    }
+)  # fmt: skip
+AGE_RANGE = re.compile(r"^\d{1,3}-\d{1,3}$")
+# Words that may accompany a restriction: "ages 16-24", "16-24 ára", "in 2020", "árið 2020".
+FILLER_WORDS = frozenset({"aged", "ages", "age", "ara", "years", "old", "in", "i", "arid", "year"})
+
+
+def _words(text: str) -> list[str]:
+    return re.sub(r"[^\w\s-]", " ", text).split()
+
+
+def _kind(word: str) -> str | None:
+    """Which restriction a normalized word states: a sex, a year or an age group."""
+    if word in SEX_WORDS:
+        return "sex"
+    if re.fullmatch(YEAR, word):
+        return "year"
+    if AGE_RANGE.match(word):
+        return "age"
+    return None
+
+
+def follow_up(question: str) -> str | None:
+    """The restriction a follow-up question adds, in the user's own words, or None.
+
+    "What about women?" gives "women"; "En í Reykjavík?" gives "í Reykjavík".
+    """
+    original = _words(question)
+    text = " ".join(_words(normalize(question)))
+    place = PLACE_FOLLOW_UP.match(text)
+    match = place or FOLLOW_UP.match(text)
+    if match is None:
+        return None
+    rest = match["rest"].split()
+    if not place:
+        kinds = [_kind(word) for word in rest]
+        if not any(kinds) or any(
+            kind is None and word not in FILLER_WORDS
+            for kind, word in zip(kinds, rest, strict=True)
+        ):
+            return None
+    return " ".join(original[-len(rest) :])
+
+
+def narrow(previous: str, restriction: str) -> str:
+    """The previous question with a follow-up's restriction.
+
+    A sex, year or age group the previous question already states is replaced ("women"
+    becomes "men"); a restriction it does not state is added after it.
+    """
+    words = previous.strip().rstrip("?").split()
+    kinds = [_kind(normalize(new)) for new in restriction.split()]
+    added = False
+    for new, kind in zip(restriction.split(), kinds, strict=True):
+        if kind is None:
+            continue
+        stated = [
+            index
+            for index, word in enumerate(words)
+            if _kind(" ".join(_words(normalize(word)))) == kind
+        ]
+        if len(stated) == 1:
+            words[stated[0]] = new
+        else:
+            added = True
+    if any(kinds) and not added:
+        return " ".join(words) + "?"
+    return f"{' '.join(words)}, {restriction}?"

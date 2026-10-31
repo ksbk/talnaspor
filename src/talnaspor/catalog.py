@@ -190,7 +190,13 @@ RELATED_TERMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("unemploy", ("atvinnuleysi",)),
     ("karla og kvenna", ("launamunur", "kynjanna")),
     ("kvenna", ("konur",)),
+    ("konum", ("konur",)),
     ("women", ("konur",)),
+    ("korlum", ("karlar",)),
+    ("karlmenn", ("karlar",)),
+    # "Búa" and "bjuggu" (live, lived) ask how many people: the population.
+    ("bua", ("mannfjoldi",)),
+    ("bjugg", ("mannfjoldi",)),
     ("hversu margir", ("fjoldi",)),
     ("hve margir", ("fjoldi",)),
     ("how many", ("fjoldi",)),
@@ -282,8 +288,29 @@ def search(question: str, limit: int = 5, minimum_score: float = 3.0) -> list[Ta
 # Words that name a category within tables (sex) rather than a topic. They are rare in
 # titles only because of tables of first names, so they must not be taken as the topic.
 CATEGORY_TERMS = frozenset(
-    {"kvenna", "karla", "konur", "karlar", "women", "men", "female", "females", "male", "males"}
+    [
+        "kvenna",
+        "karla",
+        "konur",
+        "karlar",
+        "konum",
+        "korlum",
+        "karlmenn",
+        "karlmanna",
+        "women",
+        "men",
+        "female",
+        "females",
+        "male",
+        "males",
+    ]
 )
+
+
+def table(path: str) -> TableHit | None:
+    """The catalog entry for a table path, as a search hit, if the catalog lists it."""
+    tables, _, _ = _index()
+    return next((_hit(entry, 0.0) for entry in tables if entry.path == path), None)
 
 
 def topic_word(question: str) -> str | None:
