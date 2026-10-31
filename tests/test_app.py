@@ -503,3 +503,17 @@ def test_asks_for_one_question_at_a_time(question: str, lang: str) -> None:
 
     assert body["status"] == "clarification"
     compare.assert_not_called()
+
+
+def test_page_shows_only_measured_response_times() -> None:
+    page = client.get("/").text
+
+    # Replies the page makes itself carry no time; a sub-millisecond one reads "< 1 ms".
+    assert "elapsed_ms: 0" not in page
+    assert 'typeof body.elapsed_ms !== "number"' in page and '"< 1"' in page
+
+
+def test_page_takes_follow_up_context_only_from_answered_questions() -> None:
+    page = client.get("/").text
+
+    assert 'if (body.status === "answer" || body.status === "suggestions")' in page

@@ -120,6 +120,8 @@
   }
   #log { display: flex; flex-direction: column; gap: 20px; }
   .exchange { display: flex; flex-direction: column; gap: 8px; scroll-margin-top: 12px; }
+  /* Newest first: a line keeps an earlier exchange from reading as part of the one above. */
+  .exchange + .exchange { padding-top: 20px; border-top: 1px solid var(--border); }
   .question {
     align-self: flex-end;
     max-width: 85%;
@@ -358,12 +360,19 @@
     return anchor;
   }
 
+  // The server's measured response time; none for a reply the page made itself.
+  function timing(body) {
+    if (typeof body.elapsed_ms !== "number") return null;
+    return t("time") + " " + (body.elapsed_ms < 1 ? "< 1" : body.elapsed_ms) + " ms";
+  }
+
   // The source link and response time, below every answer.
   function footer(result, body) {
     const row = element("div", "source");
     const source = element("span");
     source.append(t("source") + ": ", link(result.table_title, result.page_url));
-    row.append(source, element("span", "", t("time") + " " + body.elapsed_ms + " ms"));
+    row.append(source);
+    if (timing(body)) row.append(element("span", "", timing(body)));
     return row;
   }
 
@@ -433,11 +442,8 @@
       item.append(link(tableTitle(table), tableUrl(table)), element("div", "meta", folders.join(" › ") + updated));
       list.append(item);
     }
-    reply.append(
-      element("p", "sentence", body.message),
-      list,
-      element("p", "meta", t("time") + " " + body.elapsed_ms + " ms"),
-    );
+    reply.append(element("p", "sentence", body.message), list);
+    if (timing(body)) reply.append(element("p", "meta", timing(body)));
   }
 
   function renderAnswer(reply, body) {
@@ -490,7 +496,7 @@
     }
     reply.append(element("p", "sentence", body.message));
     if (body.detail) reply.append(details(t("more"), body.detail));
-    reply.append(element("p", "meta", t("time") + " " + body.elapsed_ms + " ms"));
+    if (timing(body)) reply.append(element("p", "meta", timing(body)));
     if (body.status === "error") reply.append(retry(reply, question, previous));
   }
 
@@ -528,13 +534,17 @@
         body = await response.json();
       } catch (error) {
         const message = t("badResponse").replace("{status}", response.status);
-        render(reply, { status: "error", message, elapsed_ms: 0 }, question, previous);
+        render(reply, { status: "error", message }, question, previous);
         return;
       }
       if (response.status === 422) {
-        render(reply, { status: "clarification", message: t("invalid"), elapsed_ms: 0 }, question);
+        render(reply, { status: "clarification", message: t("invalid") }, question);
       } else {
-        lastQuestion = body.understood_as || question;
+        // Only an answered question is context for a follow-up, never a clarification
+        // or an error.
+        if (body.status === "answer" || body.status === "suggestions") {
+          lastQuestion = body.understood_as || question;
+        }
         render(reply, body, question, previous);
       }
     } catch (error) {
