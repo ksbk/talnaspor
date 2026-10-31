@@ -1,0 +1,757 @@
+{
+  "as_of": "2026-10-31",
+  "purpose": "Tests whether Talnaspor understands questions it was not written for: paraphrases and synonyms, restrictions (sex, region, age), change over time on catalog tables, follow-up questions, and questions that must not be answered. Written on 2026-10-31, before the changes they measure.",
+  "rules": "The 'dev' split may be used while developing rules and prompts. The 'holdout' split must not be: it is scored only at checkpoints (the baseline, after each task, and the LLM go/no-go decision), and only its totals are reported. Each 'accept' entry is a table cell (or two, for a comparison) that correctly answers the question; its values are fetched by scripts/fetch_expected.py, which shares no code with Talnaspor. An answer is correct when its value (both values, for a comparison) and its period match an accepted entry. 'kind' says how a comparison's change is stated: percentage points for a percent, a percent change for an index, and both the difference and the percent change for a count. 'ambiguous' marks a question where more than one category plausibly matches; there a clarification is as good as an answer that states the category. 'previous' is the question a follow-up refers to.",
+  "questions": [
+    {
+      "id": "d01",
+      "split": "dev",
+      "lang": "en",
+      "category": "paraphrase",
+      "question": "How many people live in Iceland right now?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/1_yfirlit/Yfirlit_mannfjolda/MAN00000.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Eining": "Mannfjöldi 1. janúar"
+          },
+          "values": [
+            394324
+          ]
+        },
+        {
+          "table_path": "Ibuar/mannfjoldi/1_yfirlit/Yfirlit_mannfjolda/MAN00101.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Kyn": "Alls",
+            "Aldur": "Alls"
+          },
+          "values": [
+            394324
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d02",
+      "split": "dev",
+      "lang": "is",
+      "category": "paraphrase",
+      "question": "Hve hátt var atvinnuleysið árið 2024?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2024"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Karlar og konur",
+            "Aldur": "Alls",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            3.3
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d03",
+      "split": "dev",
+      "lang": "en",
+      "category": "paraphrase",
+      "question": "How many hotel overnight stays were there in August 2025?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Atvinnuvegir/ferdathjonusta/Gisting/1_hotelgistiheimili/SAM01103.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Mánuður": "Ágúst",
+            "Ríkisfang": "Alls",
+            "Eining": "Gistinætur"
+          },
+          "values": [
+            669564
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d04",
+      "split": "dev",
+      "lang": "is",
+      "category": "paraphrase",
+      "question": "Hversu mörg börn fæddust árið 2025?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/Faeddirdanir/Faeddir/faedingar/MAN05100.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Kyn": "Alls",
+            "Skipting": "Lifandi fæddir",
+            "Fjöldi barna": "Alls"
+          },
+          "values": [
+            4387
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d05",
+      "split": "dev",
+      "lang": "is",
+      "category": "paraphrase",
+      "question": "Hverjar eru lífslíkur kvenna á Íslandi?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/Faeddirdanir/danir/danir/MAN05401.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Kyn": "Konur",
+            "Aldur": "Við fæðingu",
+            "Skipting": "Ólifuð meðalævi"
+          },
+          "values": [
+            84.2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d06",
+      "split": "dev",
+      "lang": "en",
+      "category": "paraphrase",
+      "question": "What is the latest consumer price index value?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Efnahagur/visitolur/1_vnv/1_vnv/VIS01000.px",
+          "periods": [
+            "2026M10"
+          ],
+          "labels": {
+            "Vísitala": "Vísitala neysluverðs",
+            "Liður": "Vísitala"
+          },
+          "values": [
+            700.4
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d07",
+      "split": "dev",
+      "lang": "en",
+      "category": "restriction",
+      "question": "What was the unemployment rate for women in 2025?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Konur",
+            "Aldur": "Alls",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            4.3
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d08",
+      "split": "dev",
+      "lang": "is",
+      "category": "restriction",
+      "question": "Hve margar konur bjuggu á Íslandi 1. janúar 2026?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/1_yfirlit/Yfirlit_mannfjolda/MAN00101.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Kyn": "Konur",
+            "Aldur": "Alls"
+          },
+          "values": [
+            191927
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d09",
+      "split": "dev",
+      "lang": "is",
+      "category": "restriction",
+      "question": "Hvert var atvinnuleysi ungs fólks (16-24 ára) árið 2025?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Karlar og konur",
+            "Aldur": "16-24",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            9.2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d10",
+      "split": "dev",
+      "lang": "en",
+      "category": "change",
+      "question": "How did unemployment change between 2020 and 2025?",
+      "expect": "comparison",
+      "kind": "percent",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2020",
+            "2025"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Karlar og konur",
+            "Aldur": "Alls",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            6.3,
+            4.3
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d11",
+      "split": "dev",
+      "lang": "en",
+      "category": "change",
+      "question": "What was food inflation in September 2026?",
+      "expect": "comparison",
+      "kind": "index",
+      "ambiguous": true,
+      "accept": [
+        {
+          "table_path": "Efnahagur/visitolur/1_vnv/2_undirvisitolur/VIS01300.px",
+          "periods": [
+            "2025M09",
+            "2026M09"
+          ],
+          "labels": {
+            "Liður": "Vísitala",
+            "Undirvísitala": "011 Matur"
+          },
+          "values": [
+            99.5,
+            103.7
+          ]
+        },
+        {
+          "table_path": "Efnahagur/visitolur/1_vnv/2_undirvisitolur/VIS01300.px",
+          "periods": [
+            "2025M09",
+            "2026M09"
+          ],
+          "labels": {
+            "Liður": "Vísitala",
+            "Undirvísitala": "01 Matur og óáfengir drykkir"
+          },
+          "values": [
+            99.5,
+            103.5
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d12",
+      "split": "dev",
+      "lang": "en",
+      "category": "follow-up",
+      "previous": "What is the population of Iceland in 2026?",
+      "question": "What about women?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/1_yfirlit/Yfirlit_mannfjolda/MAN00101.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Kyn": "Konur",
+            "Aldur": "Alls"
+          },
+          "values": [
+            191927
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d13",
+      "split": "dev",
+      "lang": "is",
+      "category": "follow-up",
+      "previous": "Hvert var atvinnuleysi árið 2025?",
+      "question": "En hjá körlum?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Karlar",
+            "Aldur": "Alls",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            4.4
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d14",
+      "split": "dev",
+      "lang": "is",
+      "category": "no answer",
+      "question": "Mun verðbólgan lækka á næsta ári?",
+      "expect": "no_answer",
+      "note": "A forecast: Statistics Iceland publishes observations, not predictions."
+    },
+    {
+      "id": "d15",
+      "split": "dev",
+      "lang": "en",
+      "category": "no answer",
+      "question": "What about women?",
+      "expect": "no_answer",
+      "note": "A follow-up with no previous question: there is no context to invent."
+    },
+    {
+      "id": "h01",
+      "split": "holdout",
+      "lang": "en",
+      "category": "paraphrase",
+      "question": "How many inhabitants does Akureyri have?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/sveitarfelog/MAN02005.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Sveitarfélag": "Akureyrarbær",
+            "Aldur": "Alls",
+            "Kyn": "Alls"
+          },
+          "values": [
+            20284
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h02",
+      "split": "holdout",
+      "lang": "en",
+      "category": "paraphrase",
+      "question": "How many people live in the capital region?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/Byggdakjarnarhverfi/MAN03250.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Landshlutar": "Höfuðborgarsvæði",
+            "Aldur": "Alls",
+            "Kyn": "Alls"
+          },
+          "values": [
+            251912
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h03",
+      "split": "holdout",
+      "lang": "en",
+      "category": "paraphrase",
+      "question": "How many immigrants live in Iceland?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/3_bakgrunnur/Uppruni/MAN43005.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Sveitarfélag": "Alls",
+            "Aldur": "Alls",
+            "Kyn": "Alls"
+          },
+          "values": [
+            85577
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h04",
+      "split": "holdout",
+      "lang": "is",
+      "category": "paraphrase",
+      "question": "Hvað fæddust mörg börn í fyrra?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/Faeddirdanir/Faeddir/faedingar/MAN05100.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Kyn": "Alls",
+            "Skipting": "Lifandi fæddir",
+            "Fjöldi barna": "Alls"
+          },
+          "values": [
+            4387
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h05",
+      "split": "holdout",
+      "lang": "en",
+      "category": "paraphrase",
+      "question": "How many passenger cars were registered in Iceland at the end of 2025?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Umhverfi/5_samgongur/3_okutaekiogvegir/1_okutaeki/SAM03105.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Ökutæki": "Fólksbifreiðar, 8 farþega og færri (M1)"
+          },
+          "values": [
+            254362
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h06",
+      "split": "holdout",
+      "lang": "is",
+      "category": "paraphrase",
+      "question": "Hve margir bjuggu í Kópavogi í byrjun árs 2026?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/sveitarfelog/MAN02005.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Sveitarfélag": "Kópavogsbær",
+            "Aldur": "Alls",
+            "Kyn": "Alls"
+          },
+          "values": [
+            40286
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h07",
+      "split": "holdout",
+      "lang": "is",
+      "category": "restriction",
+      "question": "Hvert var atvinnuleysi á höfuðborgarsvæðinu árið 2025?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2025"
+          ],
+          "labels": {
+            "Landsvæði": "Höfuðborgarsvæði",
+            "Kyn": "Karlar og konur",
+            "Aldur": "Alls",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            4.9
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h08",
+      "split": "holdout",
+      "lang": "en",
+      "category": "restriction",
+      "question": "How many men lived in Reykjavík on 1 January 2026?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/Byggdakjarnarhverfi/MAN03270.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Hverfi": "Alls",
+            "Aldur": "Alls",
+            "Kyn": "Karlar"
+          },
+          "values": [
+            71096
+          ]
+        },
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/sveitarfelog/MAN02005.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Sveitarfélag": "Reykjavíkurborg",
+            "Aldur": "Alls",
+            "Kyn": "Karlar"
+          },
+          "values": [
+            71096
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h09",
+      "split": "holdout",
+      "lang": "is",
+      "category": "restriction",
+      "question": "Hvert var atvinnuleysi karla á aldrinum 25-54 ára árið 2024?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2024"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Karlar",
+            "Aldur": "25-54",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            3.2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h10",
+      "split": "holdout",
+      "lang": "is",
+      "category": "change",
+      "question": "Hvernig breyttist atvinnuleysi kvenna frá 2019 til 2025?",
+      "expect": "comparison",
+      "kind": "percent",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2019",
+            "2025"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Konur",
+            "Aldur": "Alls",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            3.4,
+            4.3
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h11",
+      "split": "holdout",
+      "lang": "is",
+      "category": "change",
+      "question": "Hversu mikið fjölgaði íbúum Reykjavíkur frá 2016 til 2026?",
+      "expect": "comparison",
+      "kind": "count",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/Byggdakjarnarhverfi/MAN03270.px",
+          "periods": [
+            "2016",
+            "2026"
+          ],
+          "labels": {
+            "Hverfi": "Alls",
+            "Aldur": "Alls",
+            "Kyn": "Alls"
+          },
+          "values": [
+            119266,
+            139804
+          ]
+        },
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/sveitarfelog/MAN02005.px",
+          "periods": [
+            "2016",
+            "2026"
+          ],
+          "labels": {
+            "Sveitarfélag": "Reykjavíkurborg",
+            "Aldur": "Alls",
+            "Kyn": "Alls"
+          },
+          "values": [
+            119266,
+            139804
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h12",
+      "split": "holdout",
+      "lang": "en",
+      "category": "follow-up",
+      "previous": "What was the unemployment rate in 2024?",
+      "question": "And for young people aged 16-24?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Samfelag/vinnumarkadur/vinnumarkadsrannsokn/3_arstolur/VIN01002.px",
+          "periods": [
+            "2024"
+          ],
+          "labels": {
+            "Landsvæði": "Alls",
+            "Kyn": "Karlar og konur",
+            "Aldur": "16-24",
+            "Eining": "Atvinnuleysi"
+          },
+          "values": [
+            8.5
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h13",
+      "split": "holdout",
+      "lang": "is",
+      "category": "follow-up",
+      "previous": "Hvað bjuggu margir í Reykjavík 1. janúar 2026?",
+      "question": "En konur?",
+      "expect": "answer",
+      "accept": [
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/Byggdakjarnarhverfi/MAN03270.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Hverfi": "Alls",
+            "Aldur": "Alls",
+            "Kyn": "Konur"
+          },
+          "values": [
+            68587
+          ]
+        },
+        {
+          "table_path": "Ibuar/mannfjoldi/2_byggdir/sveitarfelog/MAN02005.px",
+          "periods": [
+            "2026"
+          ],
+          "labels": {
+            "Sveitarfélag": "Reykjavíkurborg",
+            "Aldur": "Alls",
+            "Kyn": "Konur"
+          },
+          "values": [
+            68587
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h14",
+      "split": "holdout",
+      "lang": "en",
+      "category": "no answer",
+      "question": "Which municipality is the best place to live?",
+      "expect": "no_answer",
+      "note": "An opinion, not a statistic."
+    },
+    {
+      "id": "h15",
+      "split": "holdout",
+      "lang": "is",
+      "category": "no answer",
+      "question": "Hver var verðbólgan árið 1750?",
+      "expect": "no_answer",
+      "note": "Before any published consumer price series."
+    }
+  ]
+}

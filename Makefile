@@ -9,7 +9,7 @@ PYTEST_ARGS ?=
 MYPY_ARGS ?=
 RUN_DEV = $(UV) run --locked --group dev
 
-.PHONY: help sync run evaluate requirements requirements-check lock lock-check lint format format-check typecheck test check build clean clean-venv distclean
+.PHONY: help sync run evaluate understanding requirements requirements-check lock lock-check lint format format-check typecheck test check build clean clean-venv distclean
 
 help: ## Show available commands (the default).
 	@awk 'BEGIN { printf "Usage: make <target>\n\n" } /^[a-zA-Z_-]+:.*## / { split($$0, parts, "## "); sub(/:.*/, "", parts[1]); printf "  %-16s %s\n", parts[1], parts[2] }' $(MAKEFILE_LIST)
@@ -22,6 +22,9 @@ run: ## Start the API at http://127.0.0.1:8000 (docs at /docs).
 
 evaluate: ## Ask every evaluation question live; write evaluation/results.md.
 	$(RUN_DEV) python scripts/evaluate.py
+
+understanding: ## Score the understanding set from recorded PX-Web responses (offline).
+	$(RUN_DEV) python scripts/evaluate_understanding.py --offline
 
 lock: ## Update uv.lock after changing dependencies.
 	$(UV) lock
