@@ -235,14 +235,38 @@ and all 4 that must be refused refused. See
 - **Design decision:** [docs/adr/001-separate-retrieval.md](docs/adr/001-separate-retrieval.md).
 - **Licence:** [MIT](LICENSE). Talnaspor is free to use, modify and share.
 
-## How it was built
+## Development and runtime independence
 
-Talnaspor was developed with the help of AI coding assistants (Claude Code and Codex),
-which helped write, test and review the code. All statistical logic is deterministic
-code in this repository, tested and reviewed by the team: interpreting questions,
-choosing tables, validating queries, verifying responses and calculating changes. No AI
-service or language model runs when Talnaspor answers a question; the only external
-service it contacts is Statistics Iceland's PX-Web API.
+- **Development:** Talnaspor was developed with the help of AI coding assistants, Claude
+  Code and Codex, which assisted in writing, testing and reviewing the code. The team
+  directed and reviewed the work.
+- **Runtime:** the competition build interprets questions, plans queries, validates them,
+  calculates changes and formats answers with deterministic code in this repository. It
+  performs no language-model inference. It runs on open-source software (Python,
+  FastAPI, Uvicorn, Requests, Pydantic).
+- **Data:** every statistical observation comes from Statistics Iceland's PX-Web API.
+- **Optional local model:** local inference with the open-weight Qwen3 8B through Ollama
+  was evaluated experimentally; it added one held-out answer, below the agreed bar, and
+  is not part of the competition build.
+
+Enforced in code ([runtime.py](src/talnaspor/runtime.py)):
+
+- Every request goes through one function, which refuses any address other than
+  `https://px.hagstofa.is/pxis/api/v1/is/…` or `…/pxen/api/v1/en/…`, and any redirect.
+  A refused request is a logged error, never an answer.
+- The server does not start if `OLLAMA_URL` points anywhere but this machine, or if
+  `TALNASPOR_LLM_MODEL` names a hosted ("cloud") model or another provider's model.
+- Telemetry export is switched off, whatever `OTEL_*` environment variables say.
+
+Not enforced in code: a library opening its own connections, or a proxy set with
+`HTTPS_PROXY`. Those need network-level controls, such as a firewall that allows only
+px.hagstofa.is.
+
+**Before enabling a local model (after the competition):** call the model only through
+an endpoint taken from `runtime.py`, so the startup checks apply; pin the model by digest
+and check with `ollama show` that it runs locally; refuse redirects from Ollama as from
+PX-Web; deploy with an egress firewall that allows only px.hagstofa.is and loopback; and
+merge only after it passes the held-out evaluation criteria.
 
 ## Development
 
