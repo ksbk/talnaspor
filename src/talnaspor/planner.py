@@ -20,10 +20,22 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
+from typing import Literal
 
 import requests
 
-from talnaspor.answer import SOURCE, WORDS, Answer, Lang, format_period, format_value
+from talnaspor.answer import (
+    SOURCE,
+    WORDS,
+    Answer,
+    Comparison,
+    Lang,
+    Point,
+    _signed,
+    format_period,
+    format_value,
+)
 from talnaspor.catalog import (
     TOKEN,
     TableHit,
@@ -32,7 +44,17 @@ from talnaspor.catalog import (
     question_words,
     related_phrases,
 )
-from talnaspor.interpret import MONTH_WORDS, Clarification, month_periods, normalize
+from talnaspor.interpret import (
+    CHANGE,
+    DECADE,
+    MONTH_WORDS,
+    NUMBERS,
+    SINCE,
+    SPAN,
+    Clarification,
+    month_periods,
+    normalize,
+)
 from talnaspor.jsonstat import decode_jsonstat
 from talnaspor.pxweb import (
     PXMetadata,
@@ -62,6 +84,10 @@ TOTALS = frozenset(
     }
 )
 YEAR = re.compile(r"\b([12]\d{3})\b")
+
+# The labour force survey covers ages 16-74: in its tables that age group is the total,
+# used only when a dimension has no other total ("Alls").
+SURVEY_TOTALS = frozenset({"16-74 ara", "16-74 years", "16-74"})
 
 # "1. janúar 2026" dates a count, such as the population, to the start of a year: it asks
 # about the year, not the month, and its "1" is not a category such as "1 árs".
@@ -229,7 +255,9 @@ def plan_answer(
         # Totals are defaults rather than what was asked; they are listed with the selections.
         described = (
             ", ".join(
-                labels[code] for code in varying if normalize(labels[code]).strip() not in TOTALS
+                labels[code]
+                for code in varying
+                if normalize(labels[code]).strip() not in TOTALS | SURVEY_TOTALS
             )
             or title
         )
@@ -320,6 +348,10 @@ def _settle(
         index
         for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
         if normalize(text).strip() in TOTALS or normalize(text_en).strip() in TOTALS
+    ] or [
+        index
+        for index, (text, text_en) in enumerate(zip(texts, texts_en, strict=True))
+        if normalize(text).strip() in SURVEY_TOTALS or normalize(text_en).strip() in SURVEY_TOTALS
     ]
 
     if named:
@@ -493,3 +525,239 @@ def _labels(
         if code in translated:
             result[code] = _text(translated[code], value)
     return result
+
+
+# Words that ask for a change over time. They name no table or category, so a comparison
+# does not require a table to account for them.
+CHANGE_STEMS = (
+    "chang", "breyt", "fjolg", "faekk", "aukn", "aukist", "haekk", "laekk", "between", "milli",
+    "fra", "til", "since", "sidan", "compar", "samanburd", "thro", "trend", "increas",
+    "decreas", "rise", "rose", "fell", "grow", "grew", "mikid", "much", "last", "past",
+    "sidust", "years", "arin", "decade", "aratug",
+)  # fmt: skip
+
+Kind = Literal["percent", "index", "level"]
+
+# Units that state a count or an amount, whose change is a difference and a percent.
+LEVEL_UNITS = frozenset(
+    {"fjoldi", "number", "einstaklingar", "persons", "ibuar", "inhabitants", "people"}
+)
+
+
+@dataclass(frozen=True)
+class Span:
+    """The two periods a comparison asks about.
+
+    start and end are period labels ("2020", "2025M09"); end None is the table's latest
+    period, and start None with years_back is that many years before the end.
+    """
+
+    start: str | None
+    end: str | None
+    years_back: int | None = None
+
+
+def comparison_span(question: str) -> Span | None:
+    """The periods a question asks to compare, or None if it asks about one period.
+
+    Two years or two months ("between 2020 and 2025"), a change since a year ("how has it
+    changed since 2019"), or a number of years to the latest ("the last five years").
+    """
+    text = START_OF_YEAR.sub("", normalize(question))
+    names_month = any(re.search(rf"\b{word}\b", text) for word in MONTH_WORDS)
+    months = month_periods(text) if names_month else []
+    if isinstance(months, Clarification):
+        return None
+    years = sorted(set(YEAR.findall(text)))
+    if months:
+        return Span(months[0], months[1]) if len(months) == 2 else None
+    if len(years) == 2:
+        return Span(years[0], years[1])
+    # A span of years ("síðustu fimm ár") is a comparison even without a word for change,
+    # as in the curated answers.
+    text = DECADE.sub("last 10 years", text)
+    span = SPAN.search(text)
+    if span and not years and not span[2].startswith(("man", "month")):
+        count = int(span[1]) if span[1].isdigit() else NUMBERS[span[1]]
+        return Span(None, None, count)
+    if len(years) == 1 and SINCE.search(text) and CHANGE.search(text):
+        return Span(years[0], None)
+    return None
+
+
+def measure_kind(unit: str | None, labels: list[str]) -> Kind | None:
+    """Whether a measure is a percent, an index or a level (a count), or None if unclear.
+
+    A selected category that says so ("Atvinnuleysi, % (af vinnuafli)", "Vísitala") decides;
+    otherwise the unit does. A missing or mixed unit ("Fjöldi/hlutfall") is unclear, and a
+    change is never computed for an unclear measure.
+    """
+    for label in labels:
+        text = normalize(label).strip()
+        if "%" in text:
+            return "percent"
+        if text.startswith(("visitala", "index")):
+            return "index"
+    text = normalize(unit or "").strip()
+    if not text or "/" in text:
+        return None
+    if "%" in text or text in {"hlutfall", "prosent", "percent", "percentage"}:
+        return "percent"
+    if text.startswith(("visitala", "index")):
+        return "index"
+    return "level" if text in LEVEL_UNITS else None
+
+
+def _shift_years(label: str, years: int) -> str:
+    """The same period a number of years earlier: 2026 → 2021, 2026M09 → 2021M09."""
+    return f"{int(label[:4]) - years}{label[4:]}"
+
+
+def plan_comparison(
+    question: str,
+    hits: list[TableHit],
+    span: Span,
+    attempts: int = 8,
+    today: date | None = None,
+    lang: Lang = "is",
+) -> Comparison | Choice | None:
+    """Compare one measure between two periods from the first suitable current table.
+
+    Every dimension but time is settled as for a single answer, and both periods come from
+    one verified query, so the two values differ only in time. The change is stated in
+    percentage points for a percent, as a percent for an index, and as a difference and a
+    percent for a level; a table whose measure is unclear is skipped.
+    """
+    choice: Choice | None = None
+    text = START_OF_YEAR.sub("", normalize(question))
+    years = set(YEAR.findall(text))
+    words = {
+        word
+        for word in question_words(question, keep=CATEGORY_WORDS) - MONTH_WORDS
+        if not word.startswith(CHANGE_STEMS) and word not in NUMBERS
+    }
+    numbers = set(re.findall(r"\d+", text)) - years - {str(span.years_back)}
+    phrases = related_phrases(question)
+    weights = {word: 1.0 for word in words | numbers}
+    for phrase, related in phrases:
+        for term in related:
+            weights[term] = max(weights.get(term, 0.0), 1.5 if " " in phrase else 0.5)
+    oldest = str((today or date.today()).year - RECENT_YEARS)
+
+    for hit in [hit for hit in hits if is_current(hit.updated)][:attempts]:
+        try:
+            metadata = _get_metadata(hit.api_url)
+            time_variable = _time_variable(metadata)
+            if time_variable is None:
+                continue
+            english = _english(hit.api_url) if lang == "en" else None
+            translated = _aligned(metadata, english)
+            title_en = english.title if english else None
+            if not _accounts_for(words, phrases, metadata, hit, translated, title_en):
+                continue
+            if not _names_topic(words, phrases, metadata, hit, english):
+                continue
+            if _counts_together(words, phrases, metadata, hit, english, translated):
+                continue
+            codes = dict(zip(_texts(time_variable), time_variable.values, strict=True))
+            end = span.end or max(codes)
+            if span.end is None and end[:4] < oldest:
+                continue
+            start = span.start or _shift_years(end, span.years_back or 0)
+            if start not in codes or end not in codes or start >= end:
+                continue
+            selections, unsettled = select(metadata, weights, None, translated, end)
+            if selections is None:
+                if choice is None and unsettled and len(unsettled) == 1:
+                    choice = _choice(metadata, unsettled[0], hit, english, translated)
+                continue
+            time_code = time_variable.code
+            query = build_query(metadata, {**selections, time_code: [codes[start], codes[end]]})
+            data = decode_jsonstat(get_data(hit.api_url, query), query)
+            if len(data.observations) != 2:
+                continue
+            first, last = sorted(
+                data.observations, key=lambda o: _texts(time_variable).index(o.labels[time_code])
+            )
+            labels = _labels(first.codes, first.labels, metadata, translated)
+            if any(
+                CODED_LABEL.match(label) for label in [*first.labels.values(), *labels.values()]
+            ):
+                continue
+            unit = get_units(hit.api_url, query, list(labels.values()), lang)
+            kind = measure_kind(unit, [labels[c] for c in labels if c != time_code])
+            if kind is None:
+                continue
+        except RateLimited:
+            raise
+        except (requests.RequestException, ValueError):
+            continue
+
+        in_english = lang == "en" and english is not None
+        title = english.title if in_english and english else metadata.title
+        wording = WORDS[lang]
+        varying = [v.code for v in metadata.variables if v.code != time_code and len(v.values) > 1]
+        described = (
+            ", ".join(
+                labels[code]
+                for code in varying
+                if normalize(labels[code]).strip() not in TOTALS | SURVEY_TOTALS
+            )
+            or title
+        )
+
+        start_point, end_point = (
+            Point(
+                period=observation.labels[time_code],
+                period_label=format_period(observation.labels[time_code], lang),
+                value=observation.value,
+                value_text=(
+                    f"{format_value(observation.value, data.decimals, '', lang)} ({unit})"
+                    if unit
+                    else format_value(observation.value, data.decimals, "", lang)
+                ),
+                status=observation.status,
+            )
+            for observation in (first, last)
+        )
+        exact = Decimal(repr(last.value)) - Decimal(repr(first.value))
+        difference: int | float = (
+            int(exact)
+            if isinstance(first.value, int) and isinstance(last.value, int)
+            else float(exact)
+        )
+        unit_word = {"percent": wording["points"], "index": wording["index_points"]}.get(kind, "")
+        difference_text = _signed(format_value(difference, data.decimals, "", lang), difference)
+        difference_text += f" {unit_word}" if unit_word else (f" ({unit})" if unit else "")
+        relative_text = None
+        if kind != "percent" and first.value != 0:
+            relative = round(float(exact / abs(Decimal(repr(first.value))) * 100), 1)
+            relative_text = _signed(format_value(relative, 1, "%", lang), relative)
+        change = difference_text + (f" ({relative_text})" if relative_text else "")
+        source = (data.source or SOURCE) if lang == "is" else wording["agency"]
+        text = (
+            f"{described}: {start_point.period_label} {start_point.value_text}, "
+            f"{end_point.period_label} {end_point.value_text}. {wording['change']}: {change}. "
+            f"{wording['source']}: {source}, {title}."
+        )
+        if lang == "en" and not in_english:
+            text += " (Labels are in Icelandic: this table has no English version.)"
+        return Comparison(
+            text=text,
+            unit=unit or "",
+            start=start_point,
+            end=end_point,
+            difference=difference,
+            difference_text=difference_text,
+            relative_change_text=relative_text,
+            table_title=title,
+            source=source,
+            page_url=hit.page_url_en if in_english else hit.page_url,
+            api_url=hit.api_url,
+            selections={
+                code: [first.codes[code], last.codes[code]] if code == time_code else [value]
+                for code, value in first.codes.items()
+            },
+            labels={code: label for code, label in labels.items() if code != time_code},
+        )
+    return choice

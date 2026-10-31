@@ -5,14 +5,18 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from talnaspor.answer import Answer
+from talnaspor.answer import Answer, Comparison
 from talnaspor.catalog import TableHit
 from talnaspor.planner import (
     Choice,
+    Span,
     _accounts_for,
     _counts_together,
     _time_variable,
+    comparison_span,
+    measure_kind,
     plan_answer,
+    plan_comparison,
     select,
 )
 from talnaspor.pxweb import PXMetadata
@@ -423,3 +427,163 @@ def test_skips_categories_labelled_with_accounting_codes() -> None:
     )
 
     assert run("Atvinnuleysi", coded)[0] is None
+
+
+@pytest.mark.parametrize(
+    ("question", "span"),
+    [
+        ("How did unemployment change between 2020 and 2025?", Span("2020", "2025")),
+        ("Hvernig breyttist atvinnuleysi frá 2019 til 2025?", Span("2019", "2025")),
+        ("Atvinnuleysi 2024 og 2025", Span("2024", "2025")),
+        ("How has unemployment changed since 2019?", Span("2019", None)),
+        ("How has unemployment changed over the last five years?", Span(None, None, 5)),
+        ("Hvernig hefur atvinnuleysi breyst síðasta áratuginn?", Span(None, None, 10)),
+        ("Atvinnuleysi síðustu fimm ár", Span(None, None, 5)),
+        # "Since" without a word for change asks about the latest figure, not a change.
+        ("Unemployment since 2019", None),
+        ("Gistinætur í september 2025 og september 2026", Span("2025M09", "2026M09")),
+        # One period, or a span in months, is not a comparison of two periods here.
+        ("Unemployment in 2025", None),
+        ("How has unemployment changed over the last 6 months?", None),
+        ("Gistinætur í september 2026", None),
+    ],
+)
+def test_finds_the_two_periods_a_comparison_asks_about(question: str, span: Span | None) -> None:
+    assert comparison_span(question) == span
+
+
+@pytest.mark.parametrize(
+    ("unit", "labels", "kind"),
+    [
+        ("%", ["Atvinnuleysi"], "percent"),
+        ("Hlutfall, %", [], "percent"),
+        ("Fjöldi", ["Konur"], "level"),
+        ("Vísitala", [], "index"),
+        (None, ["Vísitala", "011 Matur"], "index"),
+        # A category that says what it is decides, even when the unit is mixed.
+        ("Fjöldi/hlutfall", ["Mánaðarbreyting, %"], "percent"),
+        ("Number/percent", ["16-74 ára", "Atvinnuleysi, % (af vinnuafli)"], "percent"),
+        # Otherwise a mixed, missing or unfamiliar unit is unclear: no change is computed.
+        ("Fjöldi/hlutfall", ["Atvinnuleysi"], None),
+        (None, ["Atvinnuleysi"], None),
+        ("Milljónir króna", [], None),
+    ],
+)
+def test_classifies_a_measure_only_when_its_unit_or_category_says(
+    unit: str | None, labels: list[str], kind: str | None
+) -> None:
+    assert measure_kind(unit, labels) == kind
+
+
+def two_years(start: float, end: float) -> str:
+    """A JSON-stat2 response for unemployment of women in 2024 and 2025."""
+    body = json.loads(
+        response(
+            {
+                "Ár": ("0", "2024"),
+                "Kyn": ("2", "Konur"),
+                "Aldur": ("0", "Alls"),
+                "Eining": ("0", "Atvinnuleysi"),
+            },
+            start,
+        )
+    )
+    body["size"][0] = 2
+    body["dimension"]["Ár"]["category"] = {
+        "index": {"0": 0, "1": 1},
+        "label": {"0": "2024", "1": "2025"},
+    }
+    body["value"] = [start, end]
+    return json.dumps(body)
+
+
+def compare_offline(
+    question: str, data: str, unit: str | None
+) -> tuple[Comparison | Choice | None, int]:
+    span = comparison_span(question)
+    assert span is not None
+    with (
+        patch("talnaspor.planner._get_metadata", return_value=metadata()),
+        patch("talnaspor.planner.get_data", return_value=data) as get_data,
+        patch("talnaspor.planner.get_units", return_value=unit),
+    ):
+        result = plan_comparison(question, [hit()], span, today=date(2026, 10, 30))
+    return result, get_data.call_count
+
+
+def test_compares_a_percentage_in_percentage_points() -> None:
+    result, calls = compare_offline("Atvinnuleysi kvenna 2024 og 2025", two_years(3.5, 4.3), "%")
+
+    assert isinstance(result, Comparison)
+    assert calls == 1  # Both periods in one verified query.
+    assert (result.start.period, result.start.value) == ("2024", 3.5)
+    assert (result.end.period, result.end.value) == ("2025", 4.3)
+    assert result.difference_text == "+0,8 prósentustig"
+    assert result.relative_change_text is None
+    assert result.labels == {"Kyn": "Konur", "Aldur": "Alls", "Eining": "Atvinnuleysi"}
+
+
+def test_compares_a_count_as_a_difference_and_a_percent() -> None:
+    result, _ = compare_offline("Atvinnuleysi kvenna 2024 og 2025", two_years(1000, 1100), "Fjöldi")
+
+    assert isinstance(result, Comparison)
+    assert result.difference_text == "+100 (Fjöldi)"
+    assert result.relative_change_text == "+10,0%"
+
+
+def test_refuses_to_compare_a_measure_of_unclear_kind() -> None:
+    # "Fjöldi/hlutfall" could be a count or a percentage: no change is computed.
+    result, _ = compare_offline(
+        "Atvinnuleysi kvenna 2024 og 2025", two_years(3.5, 4.3), "Fjöldi/hlutfall"
+    )
+
+    assert result is None
+
+
+def test_does_not_compare_periods_the_table_lacks() -> None:
+    result, calls = compare_offline("Atvinnuleysi kvenna 2019 og 2025", two_years(3.5, 4.3), "%")
+
+    assert (result, calls) == (None, 0)
+
+
+def test_compares_over_years_back_from_the_latest_period() -> None:
+    question = "Hvernig hefur atvinnuleysi kvenna breyst síðasta árið?"
+    span = Span(None, None, 1)
+    with (
+        patch("talnaspor.planner._get_metadata", return_value=metadata()),
+        patch("talnaspor.planner.get_data", return_value=two_years(3.5, 4.3)),
+        patch("talnaspor.planner.get_units", return_value="%"),
+    ):
+        result = plan_comparison(question, [hit()], span, today=date(2026, 10, 30))
+
+    assert isinstance(result, Comparison)
+    assert (result.start.period, result.end.period) == ("2024", "2025")
+
+
+def survey(ages: list[str]) -> PXMetadata:
+    return PXMetadata.model_validate(
+        {
+            "title": "Atvinnuleysi, hlutfall eftir árum",
+            "variables": [
+                {"code": "Ár", "text": "Ár", "values": ["2025"], "time": True},
+                {
+                    "code": "Aldur",
+                    "text": "Aldur",
+                    "values": list(map(str, range(len(ages)))),
+                    "valueTexts": ages,
+                },
+            ],
+        }
+    )
+
+
+def test_takes_ages_16_74_as_the_total_of_a_labour_force_survey_table() -> None:
+    selections, _ = select(survey(["16-74 ára", "16-24 ára", "25-54 ára"]), {}, "2025")
+
+    assert selections == {"Ár": "2025", "Aldur": "0"}
+
+
+def test_prefers_a_stated_total_over_ages_16_74() -> None:
+    selections, _ = select(survey(["Alls", "16-74 ára", "16-24 ára"]), {}, "2025")
+
+    assert selections == {"Ár": "2025", "Aldur": "0"}

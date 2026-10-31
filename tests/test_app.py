@@ -5,7 +5,7 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-from talnaspor.answer import LATEST, Answer
+from talnaspor.answer import LATEST, Answer, Comparison, Point
 from talnaspor.app import POPULATION_TABLE, AskResponse, app, candidates
 from talnaspor.jsonstat import MissingValue
 from talnaspor.planner import Choice
@@ -420,3 +420,33 @@ def test_does_not_try_the_population_table_for_other_topics() -> None:
     tried = candidates("Atvinnuleysi kvenna 2025", [])
 
     assert all(not hit.api_url.endswith("/" + POPULATION_TABLE) for hit in tried)
+
+
+def test_answers_a_comparison_from_a_catalog_table() -> None:
+    comparison = Comparison(
+        text="Konur: 2024 3,5 (%), 2025 4,3 (%). Breyting: +0,8 prósentustig.",
+        unit="%",
+        start=Point(
+            period="2024", period_label="2024", value=3.5, value_text="3,5 (%)", status=None
+        ),
+        end=Point(period="2025", period_label="2025", value=4.3, value_text="4,3 (%)", status=None),
+        difference=0.8,
+        difference_text="+0,8 prósentustig",
+        relative_change_text=None,
+        table_title="Atvinnuþátttaka, atvinnuleysi 1991-2025",
+        source="Hagstofa Íslands",
+        page_url="https://px.hagstofa.is/pxis/pxweb/is/x",
+        api_url="https://px.hagstofa.is/pxis/api/v1/is/x",
+        selections={"Ár": ["0", "1"], "Kyn": ["2"]},
+        labels={"Kyn": "Konur"},
+    )
+    with (
+        patch("talnaspor.app.plan_comparison", return_value=comparison) as plan,
+        patch("talnaspor.app.plan_answer") as single,
+    ):
+        body = client.post("/ask", json={"question": "Atvinnuleysi kvenna 2024 og 2025"}).json()
+
+    assert body["status"] == "answer"
+    assert body["comparison"]["difference_text"] == "+0,8 prósentustig"
+    plan.assert_called_once()
+    single.assert_not_called()

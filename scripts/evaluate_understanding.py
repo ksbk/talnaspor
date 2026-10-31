@@ -64,6 +64,8 @@ def recorded(send: Any, method: str, offline: bool) -> Any:
         response.status_code = saved["status"]
         response.headers.update(saved["headers"])
         response._content = base64.b64decode(saved["content"])
+        # As requests does for a live response; otherwise the text encoding is guessed.
+        response.encoding = requests.utils.get_encoding_from_headers(response.headers)
         response.url = url
         return response
 

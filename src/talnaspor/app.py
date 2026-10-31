@@ -24,7 +24,13 @@ from talnaspor.interpret import (
     normalize,
 )
 from talnaspor.jsonstat import MissingValue
-from talnaspor.planner import GENERAL_KNOWLEDGE, Choice, plan_answer
+from talnaspor.planner import (
+    GENERAL_KNOWLEDGE,
+    Choice,
+    comparison_span,
+    plan_answer,
+    plan_comparison,
+)
 from talnaspor.pxweb import RateLimited
 from talnaspor.validation import UnavailableValue
 
@@ -250,8 +256,14 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         tables = search(question, limit=10) if searchable else []
         if not tables:
             return respond(status="clarification", message=interpretation.text(lang))
+        hits = candidates(question, tables)
+        span = comparison_span(question)
         try:
-            planned = plan_answer(question, candidates(question, tables), attempts=12, lang=lang)
+            planned: Answer | Comparison | Choice | None = (
+                plan_comparison(question, hits, span, attempts=12, lang=lang)
+                if span
+                else plan_answer(question, hits, attempts=12, lang=lang)
+            )
         except RateLimited as error:
             return respond(
                 status="error",
@@ -262,6 +274,9 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         if isinstance(planned, Answer):
             others = [t for t in tables if t.api_url != planned.api_url][:4]
             return respond(status="answer", message=planned.text, answer=planned, tables=others)
+        if isinstance(planned, Comparison):
+            others = [t for t in tables if t.api_url != planned.api_url][:4]
+            return respond(status="answer", message=planned.text, comparison=planned, tables=others)
         message = messages["suggestions"]
         if isinstance(planned, Choice):
             message = f"{planned.message(lang)} {message}"

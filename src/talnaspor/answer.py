@@ -24,6 +24,7 @@ WORDS: dict[str, dict[str, str]] = {
         "note": "Athugasemd Hagstofu",
         "change": "Breyting",
         "points": "prósentustig",
+        "index_points": "stig",
     },
     "en": {
         "agency": "Statistics Iceland",
@@ -31,6 +32,7 @@ WORDS: dict[str, dict[str, str]] = {
         "note": "Note from Statistics Iceland",
         "change": "Change",
         "points": "percentage points",
+        "index_points": "index points",
     },
 }
 
