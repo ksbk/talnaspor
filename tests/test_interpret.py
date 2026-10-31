@@ -582,6 +582,11 @@ CLARIFY = None
         ("What was inflation last year?", CLARIFY),
         ("Verðbólga árið 2024", CLARIFY),
         ("How has inflation changed since 2016?", CLARIFY),
+        # A zero-length span is no period: refused, not the default (was ten years).
+        ("How much did the population of Iceland grow in the last 0 years?", CLARIFY),
+        ("Hvernig breyttist mannfjöldinn síðustu 0 ár?", CLARIFY),
+        ("Inflation over the last 0 months", CLARIFY),
+        ("Verðbólga síðustu 0 mánuði", CLARIFY),
         # Inflation: no period stated, so the latest.
         ("Hver er verðbólgan?", Interpretation("cpi", {"Mánuður": LATEST, **ANNUAL})),
         ("What is inflation now?", Interpretation("cpi", {"Mánuður": LATEST, **ANNUAL})),

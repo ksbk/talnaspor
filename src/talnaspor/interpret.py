@@ -167,6 +167,10 @@ RELATIVE_MESSAGE = Clarification(
 ONE_PERIOD = Clarification(
     "Tilgreindu eitt tímabil, til dæmis „2016“.", "Please name one period, for example “2016”."
 )
+ZERO_SPAN = Clarification(
+    "Tímabilið þarf að vera minnst eitt ár eða einn mánuður, til dæmis „síðustu fimm ár“.",
+    "The period must be at least one year or one month, for example “the last five years”.",
+)
 POPULATION_MONTH = Clarification(
     "Mannfjöldi er talinn 1. janúar ár hvert. Tilgreindu ár, til dæmis „2025“.",
     "Population is counted on 1 January each year. Please name a year, for example “2025”.",
@@ -251,6 +255,9 @@ def interpret(question: str) -> Interpretation | Clarification:
     months_back = None
     if span:
         count = int(span[1]) if span[1].isdigit() else NUMBERS[span[1]]
+        if count == 0:
+            # "The last 0 years" is no period; it must not fall back to the default span.
+            return ZERO_SPAN
         in_months = span[2].startswith(("man", "month"))
         months_back = count if in_months else 12 * count
         text = text[: span.start()] + text[span.end() :]
