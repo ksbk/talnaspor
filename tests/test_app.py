@@ -585,3 +585,33 @@ def test_asks_the_planner_for_last_year_by_number(question: str) -> None:
 
     asked = single.call_args.args[0]
     assert asked.endswith(str(date.today().year - 1))
+
+
+@pytest.mark.parametrize(
+    ("question", "lang"),
+    [
+        ("Show the population trend over the last 5 years", "en"),
+        ("Sýndu tímaröð mannfjöldans síðustu fimm ár", "is"),
+        ("Show a chart of unemployment since 2019", "en"),
+        ("Population year by year since 2016", "en"),
+    ],
+)
+def test_asks_rather_than_answering_a_series_with_two_endpoints(question: str, lang: str) -> None:
+    with (
+        patch("talnaspor.app.compare") as curated,
+        patch("talnaspor.app.plan_comparison") as catalog,
+    ):
+        body = client.post("/ask", json={"question": question, "lang": lang}).json()
+
+    assert body["status"] == "clarification"
+    curated.assert_not_called()
+    catalog.assert_not_called()
+
+
+@pytest.mark.parametrize("question", ["Unemployment in the year 0", "Atvinnuleysi árið 500"])
+def test_refuses_an_invalid_year_on_the_catalog_route(question: str) -> None:
+    with patch("talnaspor.app.plan_answer") as single:
+        body = client.post("/ask", json={"question": question}).json()
+
+    assert body["status"] == "clarification"
+    single.assert_not_called()

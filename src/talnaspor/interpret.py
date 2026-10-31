@@ -170,6 +170,16 @@ ONE_PERIOD = Clarification(
 # A minus before a number ("-5 years", "mínus 5 ár"); "16-24" and "2020-2025" are ranges.
 NEGATIVE = re.compile(r"(?<!\w)(?:-|minus\s+)\d")
 
+INVALID_YEAR = Clarification(
+    "Tilgreindu ár með fjórum tölustöfum, til dæmis „2016“.",
+    "Please name a year with four digits, for example “2016”.",
+)
+SERIES_UNSUPPORTED = Clarification(
+    "Ég get enn ekki sýnt tímaröð eða graf, aðeins breytingu milli tveggja tímabila. Spyrðu "
+    "til dæmis „Hvernig hefur mannfjöldinn breyst síðustu fimm ár?“",
+    "I cannot yet show a series or chart, only the change between two periods. Ask, for "
+    "example, “How has the population changed over the last five years?”",
+)
 INVALID_SPAN = Clarification(
     "Tímabilið þarf að vera minnst eitt ár eða einn mánuður, til dæmis „síðustu fimm ár“.",
     "The period must be at least one year or one month, for example “the last five years”.",
@@ -211,9 +221,27 @@ def invalid_duration(text: str) -> bool:
     if NEGATIVE.search(text):
         return True
     span = SPAN.search(name_spans(text))
-    if span and (span[1] if span[1].isdigit() else str(NUMBERS[span[1]])) == "0":
+    if span and (int(span[1]) if span[1].isdigit() else NUMBERS[span[1]]) == 0:
         return True
     return _years_ago(text)[0] == 0
+
+
+def invalid_year(text: str) -> bool:
+    """Whether normalized text names a year Talnaspor cannot read as a period ("the year 0",
+    "árið 500", "year 3000"): only four-digit years from 1000 to 2999 are, and any other
+    would be silently dropped."""
+    return any(
+        not 1000 <= int(number) <= 2999
+        for number in re.findall(r"\b(?:year|arid|ari)\s+(\d+)\b", text)
+    )
+
+
+# A request for a whole series or chart, which Talnaspor does not yet draw: two endpoints
+# would answer a different question.
+SERIES = re.compile(
+    r"\b(trend|time series|series|year by year|each year|every year|ar fra ari"
+    r"|timaro\w*|chart|graph|linurit\w*|graf\w*)\b"
+)
 
 
 def relative_period(text: str) -> bool:
@@ -268,6 +296,8 @@ def interpret(question: str) -> Interpretation | Clarification:
 
     if invalid_duration(text):
         return INVALID_SPAN
+    if invalid_year(text):
+        return INVALID_YEAR
     stated = states_period(text)
     text = name_spans(text)
     if is_cpi:
@@ -282,6 +312,9 @@ def interpret(question: str) -> Interpretation | Clarification:
         in_months = span[2].startswith(("man", "month"))
         months_back = count if in_months else 12 * count
         text = text[: span.start()] + text[span.end() :]
+        if re.search(YEAR, text) or _names_month(text):
+            # "2025 over the last 5 years" names two periods; one would be dropped.
+            return ONE_PERIOD
     if RELATIVE.search(LAST_YEAR.sub("", text)):
         return RELATIVE_MESSAGE
     if is_population and _names_month(START_OF_YEAR.sub("", text)):

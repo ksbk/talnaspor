@@ -676,3 +676,45 @@ def test_keeps_valid_spans_and_defaults_only_a_missing_one(
 )
 def test_tells_an_invalid_duration_from_ranges_and_valid_spans(text: str, invalid: bool) -> None:
     assert invalid_duration(text) is invalid
+
+
+@pytest.mark.parametrize(
+    ("question", "message"),
+    [
+        # A zero spelled "00" is still zero (the check compared spelling).
+        ("How has the population changed over the last 00 years?", "at least one year"),
+        ("Hvernig hefur mannfjöldinn breyst síðustu 00 ár?", "at least one year"),
+        # A named year and a relative span are two periods; one was dropped.
+        ("Population in 2025 over the last 5 years", "one period"),
+        ("Mannfjöldi árið 2025 síðustu fimm ár", "one period"),
+        ("Inflation in September 2026 over the last 10 months", "one period"),
+        # A year outside 1000-2999 was dropped, answering with the latest.
+        ("Population in the year 0", "four digits"),
+        ("Hver var mannfjöldinn árið 0?", "four digits"),
+        ("What was inflation in the year 500?", "four digits"),
+    ],
+)
+def test_refuses_periods_it_would_otherwise_drop(question: str, message: str) -> None:
+    result = interpret(question)
+
+    assert isinstance(result, Clarification)
+    assert message in result.message_en
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        # Neighbours that remain valid.
+        (
+            "Inflation in September 2026 over the last 12 months",
+            Interpretation("cpi", {"Mánuður": "2026M09", **ANNUAL}),
+        ),
+        (
+            "Hver var mannfjöldinn árið 2016?",
+            Interpretation("population", {"Ár": "2016", "Eining": "0"}),
+        ),
+        ("How has the population changed over the last 5 years?", comparison("pop", 5)),
+    ],
+)
+def test_keeps_valid_neighbours_of_refused_periods(question: str, expected: Interpretation) -> None:
+    assert interpret(question) == expected

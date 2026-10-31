@@ -18,9 +18,12 @@ from talnaspor.catalog import TableHit, question_words, search, table, topic_wor
 from talnaspor.interpret import (
     CHANGE,
     INVALID_SPAN,
+    INVALID_YEAR,
     NOT_FOUND,
     POPULATION_WORDS,
     RELATIVE_MESSAGE,
+    SERIES,
+    SERIES_UNSUPPORTED,
     YEAR,
     Clarification,
     Interpretation,
@@ -28,6 +31,7 @@ from talnaspor.interpret import (
     follow_up,
     interpret,
     invalid_duration,
+    invalid_year,
     narrow,
     normalize,
     relative_period,
@@ -283,6 +287,11 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         # Answering one part, or reading two parts as a comparison, would answer a question
         # that was not asked.
         return respond(status="clarification", message=messages["one_at_a_time"])
+    if SERIES.search(normalize(question)):
+        # A series or chart is asked for; two endpoints would answer another question.
+        return respond(status="clarification", message=SERIES_UNSUPPORTED.text(lang))
+    if invalid_year(normalize(question)):
+        return respond(status="clarification", message=INVALID_YEAR.text(lang))
     interpretation = interpret(question)
     if isinstance(interpretation, Interpretation) and not curated_terms_cover(
         question_words(without_periods(question))
