@@ -6,37 +6,41 @@
 <title>Talnaspor</title>
 <style>
   :root {
-    --bg: #f6f7f9;
+    --bg: #f4f6f7;
     --surface: #ffffff;
-    --text: #1a1d23;
-    --muted: #5d6573;
-    --border: #dde1e7;
-    --accent: #0b5cad;
+    --text: #13212e;
+    --heading: #12324f;
+    --muted: #51606e;
+    --border: #d8e0e6;
+    --accent: #0f6e66;
     --accent-text: #ffffff;
-    --user: #e7f0fa;
-    --info-bg: #eef4fb;
-    --info-border: #b8d0ea;
-    --warn-bg: #fdf6e7;
-    --warn-border: #e8cf94;
+    --user: #e3f1ef;
+    --info-bg: #edf4f8;
+    --info-border: #bcd3e2;
+    --warn-bg: #fbf5e8;
+    --warn-border: #e5cd92;
     --error-bg: #fbeeee;
-    --error-border: #e5b3b3;
+    --error-border: #e2b1b1;
+    --code-bg: #eef2f4;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14171c;
-      --surface: #1d2128;
-      --text: #e8eaee;
-      --muted: #9aa3b2;
-      --border: #333a45;
-      --accent: #5ea4ec;
-      --accent-text: #0b1220;
-      --user: #1f3047;
-      --info-bg: #1b2736;
-      --info-border: #2f4d70;
-      --warn-bg: #2e2717;
-      --warn-border: #6b5526;
-      --error-bg: #301c1d;
-      --error-border: #6e3436;
+      --bg: #0d1620;
+      --surface: #142130;
+      --text: #e5ecf1;
+      --heading: #d6e6f5;
+      --muted: #9db0c0;
+      --border: #28394a;
+      --accent: #4fd1c0;
+      --accent-text: #08201d;
+      --user: #133331;
+      --info-bg: #15283a;
+      --info-border: #2c4c68;
+      --warn-bg: #2b2414;
+      --warn-border: #6a5425;
+      --error-bg: #2e1b1d;
+      --error-border: #6c3337;
+      --code-bg: #0f1a25;
     }
   }
   * { box-sizing: border-box; }
@@ -46,13 +50,15 @@
     color: var(--text);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   main {
     max-width: 760px;
     margin: 0 auto;
-    padding: 24px 16px 48px;
+    padding: 20px 16px 48px;
   }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-  header h1 { margin: 0; font-size: 1.75rem; }
+  header h1 { margin: 0; font-size: 1.5rem; color: var(--heading); letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 0.9375rem; }
   .languages { display: flex; gap: 4px; flex-shrink: 0; }
   .languages button {
     padding: 4px 10px;
@@ -66,11 +72,10 @@
     background: var(--accent);
     border-color: var(--accent);
   }
-  header p { margin: 4px 0 0; color: var(--muted); }
   form {
     display: flex;
     gap: 8px;
-    margin: 20px 0 12px;
+    margin: 16px 0 10px;
   }
   input[type="text"] {
     flex: 1;
@@ -80,12 +85,12 @@
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
   }
   button {
     font: inherit;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 10px;
   }
   form button {
     padding: 12px 18px;
@@ -94,8 +99,18 @@
     border: 0;
     font-weight: 600;
   }
-  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  /* One scrollable row, so the conversation, not the examples, fills the screen. */
+  .examples {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    margin-bottom: 20px;
+    scrollbar-width: thin;
+  }
   .examples button {
+    flex: 0 0 auto;
+    white-space: nowrap;
     padding: 6px 12px;
     font-size: 0.875rem;
     color: var(--text);
@@ -103,8 +118,8 @@
     border: 1px solid var(--border);
     border-radius: 999px;
   }
-  #log { display: flex; flex-direction: column; gap: 16px; }
-  .exchange { display: flex; flex-direction: column; gap: 8px; }
+  #log { display: flex; flex-direction: column; gap: 20px; }
+  .exchange { display: flex; flex-direction: column; gap: 8px; scroll-margin-top: 12px; }
   .question {
     align-self: flex-end;
     max-width: 85%;
@@ -113,47 +128,74 @@
     border-radius: 14px 14px 4px 14px;
   }
   .reply {
-    padding: 16px;
+    padding: 18px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 14px;
   }
   .reply.clarification, .reply.suggestions {
     background: var(--info-bg);
     border-color: var(--info-border);
   }
-  .tables { margin: 0 0 10px; padding-left: 20px; }
-  .tables li { margin-bottom: 8px; }
-  .tables a { color: var(--accent); font-weight: 600; }
   .reply.refusal { background: var(--warn-bg); border-color: var(--warn-border); }
   .reply.error { background: var(--error-bg); border-color: var(--error-border); }
   .reply.loading { color: var(--muted); }
-  .figure { font-size: 2rem; font-weight: 700; line-height: 1.2; }
-  .labels { color: var(--muted); margin: 2px 0 10px; }
-  .points { border-collapse: collapse; margin: 0 0 10px; }
+  .figure {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--heading);
+    font-variant-numeric: tabular-nums;
+  }
+  .labels { color: var(--muted); margin: 4px 0 12px; }
+  .points { border-collapse: collapse; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
   .points td { padding: 2px 16px 2px 0; }
   .points td:last-child { font-weight: 600; text-align: right; }
-  .sentence { margin: 0 0 10px; }
-  .meta { font-size: 0.875rem; color: var(--muted); }
+  .sentence { margin: 0 0 12px; }
+  .meta { font-size: 0.875rem; color: var(--muted); margin: 0; }
+  .meta a, .source a, .tables a, dd a { color: var(--accent); }
+  .source {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 16px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+  .source a { font-weight: 600; }
+  .tables { margin: 0 0 10px; padding-left: 20px; }
+  .tables li { margin-bottom: 8px; }
   .notice {
-    margin: 10px 0 4px;
+    margin: 0 0 12px;
     padding: 6px 10px;
     font-size: 0.875rem;
     background: var(--warn-bg);
     border: 1px solid var(--warn-border);
-    border-radius: 6px;
+    border-radius: 8px;
   }
-  .meta a { color: var(--accent); }
   details { margin-top: 10px; font-size: 0.875rem; }
   summary { cursor: pointer; color: var(--muted); }
+  dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
   pre {
     margin: 8px 0 0;
     padding: 10px;
     overflow-x: auto;
-    background: var(--bg);
-    border-radius: 6px;
+    background: var(--code-bg);
+    border-radius: 8px;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+  .retry {
+    margin-top: 10px;
+    padding: 6px 14px;
+    color: var(--accent-text);
+    background: var(--accent);
+    border: 0;
+    font-weight: 600;
   }
 </style>
 </head>
@@ -200,7 +242,11 @@
         "Hver er munurinn á launum karla og kvenna?",
         "Verðbólga árið 2024",
       ],
-      openTable: "Opna töflu hjá Hagstofu: ",
+      source: "Heimild",
+      aboutData: "Nánar um gögnin",
+      table: "Tafla",
+      queryLabel: "Fyrirspurn til Hagstofu",
+      retry: "Reyna aftur",
       time: "Svartími",
       query: "Sýna fyrirspurn til Hagstofu",
       queryTable: "tafla",
@@ -232,7 +278,11 @@
         "What is the gender pay gap?",
         "What was inflation in 2024?",
       ],
-      openTable: "Open the table at Statistics Iceland: ",
+      source: "Source",
+      aboutData: "About the data",
+      table: "Table",
+      queryLabel: "Query sent to Statistics Iceland",
+      retry: "Try again",
       time: "Response time",
       query: "Show the query sent to Statistics Iceland",
       queryTable: "table",
@@ -301,19 +351,37 @@
     return anchor;
   }
 
-  function sourceLink(result) {
-    const source = element("p", "meta");
-    source.append(t("openTable"), link(result.table_title, result.page_url));
-    return source;
+  // The source link and response time, below every answer.
+  function footer(result, body) {
+    const row = element("div", "source");
+    const source = element("span");
+    source.append(t("source") + ": ", link(result.table_title, result.page_url));
+    row.append(source, element("span", "", t("time") + " " + body.elapsed_ms + " ms"));
+    return row;
   }
 
-  function timing(body) {
-    return element("p", "meta", t("time") + ": " + body.elapsed_ms + " ms");
-  }
-
-  function query(result) {
-    return details(t("query"), JSON.stringify(
-      { [t("queryTable")]: result.api_url, [t("queryValues")]: result.selections }, null, 2));
+  // The table, every dimension (label and code) and the exact query, folded away.
+  function aboutData(result) {
+    const box = element("details");
+    const list = element("dl");
+    const table = element("dd");
+    table.append(link(result.table_title, result.page_url));
+    list.append(element("dt", "", t("table")), table);
+    for (const [code, values] of Object.entries(result.selections)) {
+      const codes = Array.isArray(values) ? values : [values];
+      const name = (result.dimension_labels || {})[code] || code;
+      const label = (result.labels || {})[code];
+      const shown = label && codes.length === 1 ? label + " (" + codes[0] + ")" : codes.join(", ");
+      list.append(element("dt", "", name), element("dd", "", shown));
+    }
+    box.append(
+      element("summary", "", t("aboutData")),
+      list,
+      element("p", "meta", t("queryLabel") + ":"),
+      element("pre", "", JSON.stringify(
+        { [t("queryTable")]: result.api_url, [t("queryValues")]: result.selections }, null, 2)),
+    );
+    return box;
   }
 
   // Tables without an English version keep their Icelandic title and page.
@@ -344,9 +412,8 @@
       element("div", "labels", labels.join(" · ")),
       points,
       element("p", "sentence", body.message),
-      sourceLink(comparison),
-      timing(body),
-      query(comparison),
+      footer(comparison, body),
+      aboutData(comparison),
     );
   }
 
@@ -359,7 +426,11 @@
       item.append(link(tableTitle(table), tableUrl(table)), element("div", "meta", folders.join(" › ") + updated));
       list.append(item);
     }
-    reply.append(element("p", "sentence", body.message), list, timing(body));
+    reply.append(
+      element("p", "sentence", body.message),
+      list,
+      element("p", "meta", t("time") + " " + body.elapsed_ms + " ms"),
+    );
   }
 
   function renderAnswer(reply, body) {
@@ -378,28 +449,25 @@
       element("div", "figure", figure),
       element("div", "labels", labels.join(" · ")),
       element("p", "sentence", body.message),
-      sourceLink(answer),
-      timing(body),
     );
+    if (answer.kind === "catalog") {
+      reply.append(element("p", "notice", t("notice") + " " + Object.entries(answer.labels)
+        .map(([code, label]) => (answer.dimension_labels[code] || code) + ": " + label)
+        .join(" · ")));
+    }
     if (answer.status) {
       reply.append(element("p", "meta", t("note") + ": " + answer.status));
     }
-    if (answer.kind === "catalog") {
-      const chosen = element("ul", "tables");
-      for (const [code, label] of Object.entries(answer.labels)) {
-        chosen.append(element("li", "meta", (answer.dimension_labels[code] || code) + ": " + label));
-      }
-      reply.append(element("p", "notice", t("notice")), chosen);
-      if (body.tables && body.tables.length) {
-        reply.append(details(t("otherTables"),
-          body.tables.map((table) => tableTitle(table) + "\n" + tableUrl(table)).join("\n\n")));
-      }
+    reply.append(footer(answer, body), aboutData(answer));
+    if (answer.kind === "catalog" && body.tables && body.tables.length) {
+      reply.append(details(t("otherTables"),
+        body.tables.map((table) => tableTitle(table) + "\n" + tableUrl(table)).join("\n\n")));
     }
-    reply.append(query(answer));
   }
 
-  function render(reply, body) {
+  function render(reply, body, question) {
     reply.className = "reply " + body.status;
+    reply.removeAttribute("aria-busy");
     reply.textContent = "";
     if (body.status === "suggestions") {
       renderSuggestions(reply, body);
@@ -412,14 +480,30 @@
     }
     reply.append(element("p", "sentence", body.message));
     if (body.detail) reply.append(details(t("more"), body.detail));
-    reply.append(timing(body));
+    reply.append(element("p", "meta", t("time") + " " + body.elapsed_ms + " ms"));
+    if (body.status === "error") reply.append(retry(reply, question));
   }
 
-  async function ask(question) {
-    const exchange = element("article", "exchange");
-    const reply = element("div", "reply loading", t("loading"));
-    exchange.append(element("div", "question", question), reply);
-    log.prepend(exchange);
+  // Errors (Statistics Iceland unreachable or limiting requests) can be retried in place.
+  function retry(reply, question) {
+    const button = element("button", "retry", t("retry"));
+    button.type = "button";
+    button.addEventListener("click", () => ask(question, reply));
+    return button;
+  }
+
+  async function ask(question, existing) {
+    let reply = existing;
+    if (!reply) {
+      const exchange = element("article", "exchange");
+      reply = element("div");
+      exchange.append(element("div", "question", question), reply);
+      log.prepend(exchange);
+      exchange.scrollIntoView({ block: "start" });
+    }
+    reply.className = "reply loading";
+    reply.setAttribute("aria-busy", "true");
+    reply.textContent = t("loading");
 
     try {
       const response = await fetch("/ask", {
@@ -429,13 +513,15 @@
       });
       const body = await response.json();
       if (response.status === 422) {
-        render(reply, { status: "clarification", message: t("invalid"), elapsed_ms: 0 });
+        render(reply, { status: "clarification", message: t("invalid"), elapsed_ms: 0 }, question);
       } else {
-        render(reply, body);
+        render(reply, body, question);
       }
     } catch (error) {
       reply.className = "reply error";
+      reply.removeAttribute("aria-busy");
       reply.textContent = t("offline");
+      reply.append(retry(reply, question));
     }
   }
 
