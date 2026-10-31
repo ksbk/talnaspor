@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import time
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -15,15 +16,21 @@ from pydantic import BaseModel, Field
 from talnaspor.answer import Answer, Comparison, Lang, answer, compare, format_period
 from talnaspor.catalog import TableHit, question_words, search, table, topic_word
 from talnaspor.interpret import (
+    CHANGE,
+    INVALID_SPAN,
     NOT_FOUND,
     POPULATION_WORDS,
+    RELATIVE_MESSAGE,
+    YEAR,
     Clarification,
     Interpretation,
     curated_terms_cover,
     follow_up,
     interpret,
+    invalid_duration,
     narrow,
     normalize,
+    relative_period,
     without_periods,
 )
 from talnaspor.jsonstat import MissingValue
@@ -101,6 +108,10 @@ MESSAGES: dict[str, dict[str, str]] = {
 
 
 Question = Annotated[str, Field(min_length=1, max_length=500)]
+
+# "Last year" as a calendar year; "the past year" is an interval, which the planner cannot
+# answer with one year's figure.
+CALENDAR_LAST_YEAR = re.compile(r"\b(last year|previous year|i fyrra|sidasta ar)\b")
 
 # Two questions in one: "…, and how many…", "… og hve margir…".
 SEVERAL_QUESTIONS = re.compile(
@@ -289,13 +300,27 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
         tables = search(question, limit=10) if searchable else []
         if not tables:
             return respond(status="clarification", message=interpretation.text(lang))
-        hits = candidates(question, tables)
+        text = normalize(question)
         span = comparison_span(question)
+        if invalid_duration(text):
+            return respond(status="clarification", message=INVALID_SPAN.text(lang))
+        asked = question
+        last_year = span is None and CALENDAR_LAST_YEAR.search(text)
+        if last_year and not re.search(YEAR, text) and not CHANGE.search(text):
+            # "Í fyrra" (last year) is the previous calendar year, asked for by number; the
+            # answer shows the year.
+            asked = f"{question} {date.today().year - 1}"
+            text = CALENDAR_LAST_YEAR.sub(" ", text)
+        if span is None and relative_period(text):
+            # The planner reads named years and months only; a relative period it cannot
+            # use is refused rather than dropped (which answered with the latest figure).
+            return respond(status="clarification", message=RELATIVE_MESSAGE.text(lang))
+        hits = candidates(asked, tables)
         try:
             planned: Answer | Comparison | Choice | None = (
                 plan_comparison(question, hits, span, attempts=12, lang=lang)
                 if span
-                else plan_answer(question, hits, attempts=12, lang=lang)
+                else plan_answer(asked, hits, attempts=12, lang=lang)
             )
         except RateLimited as error:
             return respond(

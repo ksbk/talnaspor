@@ -167,7 +167,10 @@ RELATIVE_MESSAGE = Clarification(
 ONE_PERIOD = Clarification(
     "Tilgreindu eitt tímabil, til dæmis „2016“.", "Please name one period, for example “2016”."
 )
-ZERO_SPAN = Clarification(
+# A minus before a number ("-5 years", "mínus 5 ár"); "16-24" and "2020-2025" are ranges.
+NEGATIVE = re.compile(r"(?<!\w)(?:-|minus\s+)\d")
+
+INVALID_SPAN = Clarification(
     "Tímabilið þarf að vera minnst eitt ár eða einn mánuður, til dæmis „síðustu fimm ár“.",
     "The period must be at least one year or one month, for example “the last five years”.",
 )
@@ -199,6 +202,25 @@ def states_period(text: str) -> bool:
 
 def _names_month(text: str) -> bool:
     return any(re.search(rf"\b{word}\b", text) for word in MONTHS)
+
+
+def invalid_duration(text: str) -> bool:
+    """Whether normalized text states a span or offset of zero or below ("the last 0 years",
+    "fyrir 0 árum", "-5 years ago"). Such a period is refused: it is not a missing one, which
+    takes the default, and must never fall back to it."""
+    if NEGATIVE.search(text):
+        return True
+    span = SPAN.search(name_spans(text))
+    if span and (span[1] if span[1].isdigit() else str(NUMBERS[span[1]])) == "0":
+        return True
+    return _years_ago(text)[0] == 0
+
+
+def relative_period(text: str) -> bool:
+    """Whether normalized text states a period relative to the latest ("the last 3 years",
+    "í fyrra", "a decade ago", "since 2019"), rather than only named years and months."""
+    patterns = (SPAN, TWELVE_MONTHS, DECADE, CENTURY, AGO, LAST_YEAR, SINCE, RELATIVE)
+    return any(pattern.search(text) for pattern in patterns)
 
 
 def name_spans(text: str) -> str:
@@ -244,6 +266,8 @@ def interpret(question: str) -> Interpretation | Clarification:
     if not is_cpi and not is_population:
         return Clarification(NOT_FOUND["is"], NOT_FOUND["en"], recognized=False)
 
+    if invalid_duration(text):
+        return INVALID_SPAN
     stated = states_period(text)
     text = name_spans(text)
     if is_cpi:
@@ -255,9 +279,6 @@ def interpret(question: str) -> Interpretation | Clarification:
     months_back = None
     if span:
         count = int(span[1]) if span[1].isdigit() else NUMBERS[span[1]]
-        if count == 0:
-            # "The last 0 years" is no period; it must not fall back to the default span.
-            return ZERO_SPAN
         in_months = span[2].startswith(("man", "month"))
         months_back = count if in_months else 12 * count
         text = text[: span.start()] + text[span.end() :]
@@ -335,7 +356,9 @@ def _interpret_cpi(
 
     housing = _has_any(text, ("an husnaedis", "excluding housing", "without housing"))
     selections = {"Vísitala": "CPILH" if housing else "CPI", "Liður": measure}
-    return _with_periods("cpi", "Mánuður", selections, periods, spans, months_back or 12)
+    return _with_periods(
+        "cpi", "Mánuður", selections, periods, spans, 12 if months_back is None else months_back
+    )
 
 
 def _interpret_population(
@@ -374,7 +397,14 @@ def _interpret_population(
         # Growth over a span of years is the change in the population itself.
         measure = "0"
 
-    return _with_periods("population", "Ár", {"Eining": measure}, years, spans, years_back or 10)
+    return _with_periods(
+        "population",
+        "Ár",
+        {"Eining": measure},
+        years,
+        spans,
+        10 if years_back is None else years_back,
+    )
 
 
 def _spans(text: str, periods: list[str]) -> bool:

@@ -8,6 +8,7 @@ from talnaspor.interpret import (
     curated_terms_cover,
     follow_up,
     interpret,
+    invalid_duration,
     narrow,
     normalize,
     without_periods,
@@ -601,3 +602,77 @@ def test_uses_or_refuses_every_stated_period(
         assert isinstance(result, Clarification)
     else:
         assert result == expected
+
+
+INVALID = "minnst eitt ár eða einn mánuður"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # Zero or negative spans and offsets, years and months, in both languages.
+        "How much did the population of Iceland grow in the last 0 years?",
+        "Hvernig breyttist mannfjöldinn síðustu 0 ár?",
+        "How has the population changed over the last -5 years?",
+        "Hvernig hefur mannfjöldinn breyst síðustu -5 ár?",
+        "How has the population changed over the last minus 5 years?",
+        "What was the population 0 years ago?",
+        "Hver var mannfjöldinn fyrir 0 árum?",
+        "What was the population -3 years ago?",
+        "Hver var mannfjöldinn fyrir mínus 3 árum?",
+        "Inflation over the last 0 months",
+        "Verðbólga síðustu 0 mánuði",
+        "How has inflation changed over the last -2 months?",
+        "Hvernig hefur verðbólgan breyst síðustu -2 mánuði?",
+    ],
+)
+def test_refuses_a_zero_or_negative_duration(question: str) -> None:
+    result = interpret(question)
+
+    assert isinstance(result, Clarification)
+    assert INVALID in result.message
+    assert "at least one year or one month" in result.message_en
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        # Valid 1-, 10- and 12-unit spans keep exactly their period.
+        ("How has the population changed over the last 1 year?", comparison("pop", 1)),
+        ("Hvernig hefur mannfjöldinn breyst síðustu 1 ár?", comparison("pop", 1)),
+        ("How has the population changed over the last 10 years?", comparison("pop", 10)),
+        ("Hvernig hefur mannfjöldinn breyst síðustu tíu ár?", comparison("pop", 10)),
+        ("How has the population changed over the last 12 years?", comparison("pop", 12)),
+        ("Hvernig hefur mannfjöldinn breyst síðustu 12 ár?", comparison("pop", 12)),
+        ("How has inflation changed over the last 10 months?", comparison("cpi", 10)),
+        ("Hvernig hefur verðbólgan breyst síðustu 10 mánuði?", comparison("cpi", 10)),
+        ("How has inflation changed over the last 1 year?", comparison("cpi", 12)),
+        (
+            "What was the population 1 year ago?",
+            Interpretation("population", {"Ár": before_latest(1), "Eining": "0"}),
+        ),
+        # A missing duration takes the stated default.
+        ("How has the population changed?", comparison("pop", 10)),
+        ("Hvernig hefur verðbólgan breyst?", comparison("cpi", 12)),
+    ],
+)
+def test_keeps_valid_spans_and_defaults_only_a_missing_one(
+    question: str, expected: Interpretation
+) -> None:
+    assert interpret(question) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "invalid"),
+    [
+        ("atvinnuleysi 16-24 ara", False),
+        ("mannfjoldi 2020-2025", False),
+        ("the last 5 years", False),
+        ("the last 0 years", True),
+        ("-5 years ago", True),
+        ("fyrir 0 arum", True),
+        ("sidustu minus 2 manudi", True),
+    ],
+)
+def test_tells_an_invalid_duration_from_ranges_and_valid_spans(text: str, invalid: bool) -> None:
+    assert invalid_duration(text) is invalid

@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -517,3 +518,70 @@ def test_page_takes_follow_up_context_only_from_answered_questions() -> None:
     page = client.get("/").text
 
     assert 'if (body.status === "answer" || body.status === "suggestions")' in page
+
+
+@pytest.mark.parametrize(
+    ("question", "lang"),
+    [
+        ("How has unemployment changed over the last 0 years?", "en"),
+        ("Hvernig hefur atvinnuleysi breyst síðustu 0 ár?", "is"),
+        ("Unemployment over the last -2 years", "en"),
+        ("Atvinnuleysi síðustu 0 mánuði", "is"),
+    ],
+)
+def test_refuses_an_invalid_duration_before_any_request(question: str, lang: str) -> None:
+    # It answered with the latest figure, dropping the period.
+    with (
+        patch("talnaspor.pxweb.requests.get") as get,
+        patch("talnaspor.pxweb.requests.post") as post,
+    ):
+        body = client.post("/ask", json={"question": question, "lang": lang}).json()
+
+    assert body["status"] == "clarification"
+    get.assert_not_called()
+    post.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Unemployment over the last 3 months",
+        "Unemployment since 2019",
+        # An interval, which one year's figure would replace.
+        "How has unemployment changed over the past year?",
+        "Hvernig breyttist atvinnuleysi í fyrra?",
+    ],
+)
+def test_never_drops_a_relative_period_the_planner_cannot_use(question: str) -> None:
+    with patch("talnaspor.app.plan_answer") as single:
+        body = client.post("/ask", json={"question": question, "lang": "en"}).json()
+
+    assert body["status"] == "clarification"
+    single.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("question", "start"),
+    [
+        ("How has the population changed over the last 1 year?", "latest-1"),
+        ("How has the population changed over the last 10 years?", "latest-10"),
+        ("How has the population changed over the last 12 months?", "latest-1"),
+    ],
+)
+def test_plans_exactly_the_period_asked_for(question: str, start: str) -> None:
+    with patch("talnaspor.app.compare", side_effect=ValueError("stop")) as plan:
+        client.post("/ask", json={"question": question, "lang": "en"})
+
+    table, selections, compare_from, _ = plan.call_args.args
+    assert (table, selections["Ár"], compare_from) == ("population", "latest", start)
+
+
+@pytest.mark.parametrize(
+    "question", ["How many deaths were there last year?", "Atvinnuleysi í fyrra"]
+)
+def test_asks_the_planner_for_last_year_by_number(question: str) -> None:
+    with patch("talnaspor.app.plan_answer", return_value=None) as single:
+        client.post("/ask", json={"question": question, "lang": "en"})
+
+    asked = single.call_args.args[0]
+    assert asked.endswith(str(date.today().year - 1))
