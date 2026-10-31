@@ -50,6 +50,7 @@ from talnaspor.interpret import (
     NUMBERS,
     SINCE,
     SPAN,
+    START_OF_YEAR,
     Clarification,
     month_periods,
     name_spans,
@@ -93,10 +94,6 @@ SURVEY_TOTALS = frozenset({"16-74 ara", "16-74 years", "16-74"})
 # a question names none and the dimension has no total: "Hver var launavísitalan?" asks
 # for the index, not its monthly or annual change.
 LEVELS = frozenset({"visitolugildi", "visitala", "index", "index value"})
-
-# "1. janúar 2026" dates a count, such as the population, to the start of a year: it asks
-# about the year, not the month, and its "1" is not a category such as "1 árs".
-START_OF_YEAR = re.compile(r"\b(1\.? januar|1(st)? (of )?january|january 1(st)?),? (?=[12]\d{3}\b)")
 
 # General-knowledge questions that share words with statistical tables ("capital of
 # Iceland" is not about capital transfers); they get suggestions, never a figure.

@@ -496,3 +496,103 @@ def test_explains_an_unsupported_relative_period_without_a_misleading_example() 
 )
 def test_reads_relative_periods_as_periods_not_topics(question: str, covered: bool) -> None:
     assert curated_terms_cover(question_words(without_periods(question))) is covered
+
+
+def comparison(table: str, back: int | str) -> Interpretation:
+    start = back if isinstance(back, str) else before_latest(back)
+    if table == "cpi":
+        return Interpretation("cpi", {"Mánuður": LATEST, **ANNUAL}, start)
+    return Interpretation("population", POPULATION_NOW, start)
+
+
+ANNUAL = {"Vísitala": "CPI", "Liður": "change_A"}
+CLARIFY = None
+
+
+# Every topic with every kind of time expression, in both languages: a period the question
+# states is used (a comparison or a point) or refused (a clarification), never replaced by
+# a default. A default applies only when no period is stated.
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        # Population: last 12 months (was 2016-2026, or the latest year alone).
+        ("How has the population changed over the last 12 months?", comparison("pop", 1)),
+        ("Hvernig hefur mannfjöldinn breyst síðustu 12 mánuði?", comparison("pop", 1)),
+        ("Population over the last 12 months", comparison("pop", 1)),
+        # Population: last year, decade, century, since.
+        ("How has the population changed over the last year?", comparison("pop", 1)),
+        ("Hvernig breyttist mannfjöldinn í fyrra?", comparison("pop", 1)),
+        ("How has the population changed over the last decade?", comparison("pop", 10)),
+        ("Hvernig hefur mannfjöldinn breyst síðasta áratuginn?", comparison("pop", 10)),
+        ("How has the population changed over the last century?", comparison("pop", 100)),
+        ("Hvernig hefur mannfjöldinn breyst síðustu öld?", comparison("pop", 100)),
+        ("How has the population changed since 2016?", comparison("pop", "2016")),
+        ("Hvernig hefur mannfjöldinn breyst frá 2016?", comparison("pop", "2016")),
+        # Population: a point in time.
+        (
+            "What was the population a decade ago?",
+            Interpretation("population", {"Ár": before_latest(10), "Eining": "0"}),
+        ),
+        (
+            "Hver var mannfjöldinn fyrir áratug?",
+            Interpretation("population", {"Ár": before_latest(10), "Eining": "0"}),
+        ),
+        (
+            "Hve margir bjuggu á Íslandi 1. janúar 2026?",
+            Interpretation("population", {"Ár": "2026", "Eining": "0"}),
+        ),
+        (
+            "How many people lived in Iceland on 1 January 2026?",
+            Interpretation("population", {"Ár": "2026", "Eining": "0"}),
+        ),
+        # Population: a named month is refused (was silently 1 January of that year).
+        ("What was the population of Iceland on 1 December 2025?", CLARIFY),
+        ("Hver var mannfjöldinn í september 2025?", CLARIFY),
+        ("How did the population change between January and June 2025?", CLARIFY),
+        # Population: no period stated, so the stated default applies.
+        ("How has the population changed?", comparison("pop", 10)),
+        ("Hvernig hefur mannfjöldinn breyst?", comparison("pop", 10)),
+        # Inflation: last 12 months is the annual change.
+        (
+            "Inflation over the last 12 months",
+            Interpretation("cpi", {"Mánuður": LATEST, **ANNUAL}),
+        ),
+        (
+            "Verðbólga síðustu 12 mánuði",
+            Interpretation("cpi", {"Mánuður": LATEST, **ANNUAL}),
+        ),
+        ("What was the monthly inflation in the last 12 months?", CLARIFY),
+        # Inflation: decade, century, a point in time, a named month.
+        ("How has inflation changed over the last decade?", comparison("cpi", 120)),
+        ("Hvernig hefur verðbólgan breyst síðasta áratuginn?", comparison("cpi", 120)),
+        ("How has inflation changed over the last century?", comparison("cpi", 1200)),
+        (
+            "What was inflation a decade ago?",
+            Interpretation("cpi", {"Mánuður": before_latest(120), **ANNUAL}),
+        ),
+        (
+            "Hver var verðbólgan fyrir áratug?",
+            Interpretation("cpi", {"Mánuður": before_latest(120), **ANNUAL}),
+        ),
+        (
+            "Hver var verðbólgan í september 2026?",
+            Interpretation("cpi", {"Mánuður": "2026M09", **ANNUAL}),
+        ),
+        # Inflation: a year alone, last year, or since a year needs a month.
+        ("What was inflation last year?", CLARIFY),
+        ("Verðbólga árið 2024", CLARIFY),
+        ("How has inflation changed since 2016?", CLARIFY),
+        # Inflation: no period stated, so the latest.
+        ("Hver er verðbólgan?", Interpretation("cpi", {"Mánuður": LATEST, **ANNUAL})),
+        ("What is inflation now?", Interpretation("cpi", {"Mánuður": LATEST, **ANNUAL})),
+    ],
+)
+def test_uses_or_refuses_every_stated_period(
+    question: str, expected: Interpretation | None
+) -> None:
+    result = interpret(question)
+
+    if expected is CLARIFY:
+        assert isinstance(result, Clarification)
+    else:
+        assert result == expected

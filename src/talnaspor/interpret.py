@@ -154,6 +154,10 @@ AGO = re.compile(
 # Other relative periods are not supported, and must never be silently ignored.
 RELATIVE = re.compile(r"\b(last|past|previous|sidustu|sidasta|sidastlid|ago|fyrir \w+ arum)\b")
 
+# "1. janúar 2026" dates a count, such as the population, to the start of a year: it asks
+# about the year, not the month, and its "1" is not a category such as "1 árs".
+START_OF_YEAR = re.compile(r"\b(1\.? januar|1(st)? (of )?january|january 1(st)?),? (?=[12]\d{3}\b)")
+
 RELATIVE_MESSAGE = Clarification(
     "Ég get ekki enn svarað um afstæð tímabil eins og þetta. Tilgreindu ár eða mánuð, "
     "til dæmis „2016“ eða „september 2026“.",
@@ -163,6 +167,34 @@ RELATIVE_MESSAGE = Clarification(
 ONE_PERIOD = Clarification(
     "Tilgreindu eitt tímabil, til dæmis „2016“.", "Please name one period, for example “2016”."
 )
+POPULATION_MONTH = Clarification(
+    "Mannfjöldi er talinn 1. janúar ár hvert. Tilgreindu ár, til dæmis „2025“.",
+    "Population is counted on 1 January each year. Please name a year, for example “2025”.",
+)
+MONTHLY_SPAN = Clarification(
+    "Mánaðarbreyting er breyting eins mánaðar. Tilgreindu mánuð, til dæmis „september "
+    "2026“, eða spyrðu um verðbólgu síðustu 12 mánuði.",
+    "The monthly change is one month's change. Please name a month, for example "
+    "“September 2026”, or ask about inflation over the last 12 months.",
+)
+
+
+def states_period(text: str) -> bool:
+    """Whether normalized text states a period: a year, a month or a relative period.
+
+    "Now", "latest" and "today" are not stated periods: they mean the latest, as when none
+    is given.
+    """
+    patterns = (SPAN, TWELVE_MONTHS, DECADE, CENTURY, AGO, LAST_YEAR, SINCE, RELATIVE)
+    return (
+        bool(re.search(YEAR, text))
+        or _names_month(text)
+        or any(pattern.search(text) for pattern in patterns)
+    )
+
+
+def _names_month(text: str) -> bool:
+    return any(re.search(rf"\b{word}\b", text) for word in MONTHS)
 
 
 def name_spans(text: str) -> str:
@@ -208,7 +240,11 @@ def interpret(question: str) -> Interpretation | Clarification:
     if not is_cpi and not is_population:
         return Clarification(NOT_FOUND["is"], NOT_FOUND["en"], recognized=False)
 
-    text = TWELVE_MONTHS.sub("12 manada", name_spans(text))
+    stated = states_period(text)
+    text = name_spans(text)
+    if is_cpi:
+        # For inflation, "the last 12 months" is the annual change, not a span.
+        text = TWELVE_MONTHS.sub("12 manada", text)
     years_ago, text = _years_ago(text)
     last_year = bool(LAST_YEAR.search(text))
     span = SPAN.search(text)
@@ -219,6 +255,20 @@ def interpret(question: str) -> Interpretation | Clarification:
         months_back = count if in_months else 12 * count
         text = text[: span.start()] + text[span.end() :]
     if RELATIVE.search(LAST_YEAR.sub("", text)):
+        return RELATIVE_MESSAGE
+    if is_population and _names_month(START_OF_YEAR.sub("", text)):
+        # The population is counted once a year; a month would be silently dropped.
+        return POPULATION_MONTH
+    used = (
+        span is not None
+        or years_ago is not None
+        or last_year
+        or bool(re.search(YEAR, text))
+        or _names_month(text)
+        or "12 manada" in text
+    )
+    if stated and not used:
+        # A period the question states is used or refused, never replaced by a default.
         return RELATIVE_MESSAGE
 
     if is_cpi:
@@ -257,6 +307,8 @@ def _interpret_cpi(
         periods = [point]
 
     if _has_any(text, ("manadarbreyting", "milli manada", "monthly", "month on month")):
+        if "12 manada" in text:
+            return MONTHLY_SPAN
         measure = "change_M"
     elif _has_any(
         text, ("verdbolg", "inflation", "arsbreyting", "annual", "12 manada", "verdlag", "haekk")
