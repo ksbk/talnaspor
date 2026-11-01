@@ -1,7 +1,7 @@
 # Example questions
 
-These are the four examples previously shown in the README, preserved from the existing
-[demo checklist](demo-checklist.md) and [judges’ guide](judges-guide.md). The demonstration
+These are the four examples previously shown in the README, also used in the
+[judges’ guide](judges-guide.md). The demonstration
 figures are documented as checked on 31 October 2026; they are not a new evaluation run.
 Live answers may change when Statistics Iceland publishes data. Always check the period
 and selections shown on the answer card.

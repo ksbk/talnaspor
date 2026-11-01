@@ -65,6 +65,7 @@ and request limits. See the [known limitations](docs/how-it-works.md#8-known-lim
 ## Documentation
 
 - [Technical documentation and development commands](docs/how-it-works.md)
+- [Source guide: what every file does](docs/source-guide.md)
 - [Examples with recorded figures and source selections](docs/examples.md)
 - [Potential future enhancements](docs/roadmap.md)
 

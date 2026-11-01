@@ -147,8 +147,14 @@ and table titles, never our own translations of official terms.
 ## 6. Reliability
 
 Identical requests to Statistics Iceland are cached for an hour, and a refused request
-(HTTP 429) is retried once after a short pause. Warming up before a demo therefore means the
-demo itself makes no new requests. See [demo-checklist.md](demo-checklist.md).
+(HTTP 429) is retried once after a short pause. Statistics Iceland limits requests per
+network address, and one catalog question can make 10–20 requests, so questions should be
+asked at a moderate pace.
+
+Without a network, [serve_recorded.py](../scripts/serve_recorded.py) answers from the
+responses saved in [evaluation/recordings](../evaluation/recordings). Questions that were not
+recorded get fewer tables, often only suggestions. The page does not mark replayed answers,
+so a replay must be announced as a recording, with its date.
 
 ## 7. Evaluation
 
