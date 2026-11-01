@@ -1,8 +1,7 @@
 # Talnaspor
 
-A chatbot that answers everyday questions about Icelandic statistics with official
-figures from Statistics Iceland (Hagstofa Íslands), and shows exactly where every
-number came from.
+Ask a question about Icelandic statistics, in Icelandic or English, and get the official
+figure from Statistics Iceland (Hagstofa Íslands), together with exactly where it came from.
 
 Built for Track 2 (direct PX-Web API) of Statistics Iceland's Gagnaþon 2026.
 
@@ -10,17 +9,34 @@ Built for Track 2 (direct PX-Web API) of Statistics Iceland's Gagnaþon 2026.
 > Vísitala neysluverðs, ársbreyting í október 2026: 5,9%. Heimild: Hagstofa Íslands,
 > Vísitala neysluverðs og breytingar, grunnur 1988=100.
 
-For other topics, Talnaspor searches all 2,102 tables Statistics Iceland publishes. It
-answers from the best-matching table when the question settles every one of that
-table's dimensions, and otherwise points to the tables that hold the answer.
+## What problem does it solve?
 
-Every figure is retrieved live from [px.hagstofa.is](https://px.hagstofa.is) and checked
-against the exact query that was sent. Talnaspor uses **no language model at runtime**:
-questions are interpreted by explicit rules, and answers are filled into fixed templates,
-so a number can never be invented.
+Statistics Iceland publishes about 2,100 tables. Finding one number means knowing which
+table holds it and then choosing a value for every one of its dimensions (period, sex, age,
+region, unit and so on). Talnaspor does that from a plain question. It shows the figure, its
+unit and period, the source table and every value it selected, so anyone can check the
+answer against the official source.
 
-The interface and answers are in Icelandic or English, switched with **ÍS / EN** in the
-page. English answers use Statistics Iceland's own English labels and table titles.
+When Talnaspor cannot settle a question, it does not guess. It asks for the missing
+detail, points to the tables that probably hold the answer, or says that the figure is not
+available.
+
+## What can it do?
+
+- **Curated answers** for inflation and the consumer price index (table `VIS01000`) and
+  for key population figures (`MAN00000`), with tailored wording and units. It handles
+  named months and years, the latest period, comparisons of two periods and spans such as
+  "síðustu tíu árin".
+- **Catalog answers** from any of the 2,102 tables, but only when the question settles
+  every dimension of the table. Each such answer is labelled as selected automatically and
+  lists the values chosen.
+- **Suggestions** of the best-matching tables, with links, when no table can be settled.
+- **Clarifications** when a question is ambiguous or incomplete, and **refusals** when a
+  period lies outside the table or a figure is unpublished (marked `..`).
+- **Short follow-ups** such as *What about women?* or *En í Reykjavík?*. The answer shows
+  how the follow-up was understood.
+- **Two languages.** The **ÍS / EN** switch sets the language of the interface and answers.
+  English answers use Statistics Iceland's own English labels and table titles.
 
 ## Quick start
 
@@ -40,259 +56,170 @@ pip install -r requirements.txt    # Exact versions, exported from uv.lock
 uvicorn app:app
 ```
 
-**With [uv](https://docs.astral.sh/uv/)** and make:
+**With [uv](https://docs.astral.sh/uv/)**:
 
 ```sh
 make sync    # Install exact dependency versions from uv.lock
-make run     # Start the server
+make run     # Start the server (auto-reloads on file changes)
 ```
 
-Then open <http://127.0.0.1:8000> and ask a question, or click one of the examples.
+Then open <http://127.0.0.1:8000>. Interactive API documentation is at
+<http://127.0.0.1:8000/docs>. Talnaspor runs locally; there is no hosted version.
 
-## What you can ask
+## Example questions
 
-Questions can be in Icelandic or English, whichever language the page is set to. Answers,
-clarifications and the interface follow the **ÍS / EN** switch.
-
-| Topic | Examples | Source table |
+| Question | Answer (as of 31 October 2026) | Table |
 |---|---|---|
-| Inflation and the consumer price index | *Hver er verðbólgan núna?* · *Verðbólga án húsnæðis í mars 2026* · *Hver var mánaðarbreyting vísitölu neysluverðs í ágúst 2026?* · *What was the consumer price index in June 2025?* | [VIS01000](https://px.hagstofa.is/pxis/pxweb/is/Efnahagur/Efnahagur__visitolur__1_vnv__1_vnv/VIS01000.px), by month |
-| Population | *Hvað búa margir á Íslandi?* · *Hver var mannfjöldinn í fyrra?* · *Hver var fjölgun íbúa árið 2024?* · *Hve margir aðfluttir umfram brottflutta 2023?* | [MAN00000](https://px.hagstofa.is/pxis/pxweb/is/Ibuar/Ibuar__mannfjoldi__1_yfirlit__Yfirlit_mannfjolda/MAN00000.px), by year |
-| Change over time | *How has Iceland's population changed?* · *Verðbólga í september 2025 og 2026* · *Hvernig hefur mannfjöldinn breyst frá 2000?* | Either table |
-| Other topics, answered | *Hversu margir eru atvinnulausir á Íslandi?* · *Hver er munurinn á launum karla og kvenna?* · *What is the unemployment rate?* · *Hver er kosningaþátttaka?* · *Hver er landsframleiðslan?* | The best-matching of all 2,102 tables |
-| Other topics, found | *How many tourists visit Iceland?* · *Hvað eru margir bílar á Íslandi?* | The 5 best-matching tables, with links |
+| *Hver var verðbólgan í september 2026?* | 5,9% | `VIS01000` |
+| *How many people live in Iceland?* | 394,324 people (1 January 2026) | `MAN00000` |
+| *What is the population of Reykjavík in 2026?* | 139,804 | `MAN03270` (catalog) |
+| *Hvernig breyttist atvinnuleysi frá 2020 til 2025?* | -2,0 prósentustig (6,3 → 4,3) | `VIN00911` (catalog) |
+| *Inflation in September 2025 and 2026* | +1.8 percentage points (4.1% → 5.9%) | `VIS01000` |
+| *Hver var verðbólgan árið 2024?* | Asks which month | |
+| *Hver var mannfjöldinn árið 1650?* | Refuses: the table covers 1703 to 2026 | `MAN00000` |
+| *How many tourists visit Iceland?* | Suggests five tables, with links | |
 
-- **CPI measures:** the index level, monthly change and annual change (inflation), with
-  or without housing.
-- **Population measures:** population on 1 January, growth (number and %), net
-  migration and natural increase.
-- **Periods:** a named month or year, the latest published period when none is given,
-  "last year" for population, two periods to compare, or a span back from the latest
-  period ("síðustu tíu árin", "the last 6 months").
-- **Comparisons:** a change in a percentage is reported in percentage points. Levels such
-  as population also get the relative change. Catalog tables compare two periods too, but
-  only when the unit or the selected category says whether the measure is a percentage,
-  an index or a count.
-- **Follow-ups:** a short follow-up such as *What about women?*, *En hjá körlum?*, *And in
-  2020?* or *En í Reykjavík?* narrows the previous question, and the answer shows how it
-  was understood. Without a previous question, Talnaspor asks for the whole question.
-
-For other topics, answers from a catalog table are marked as selected automatically and
-list every value chosen, so they can be checked. When one choice is missing, such as a
-count or a percentage, Talnaspor names the options and asks again. Otherwise it suggests
-the best-matching official tables, with links and the date each was last updated. When a question is ambiguous, Talnaspor asks for
-clarification instead of guessing. When a figure has not been published (Statistics Iceland marks it `..`), it
-says so instead of substituting another period.
+Figures change when Statistics Iceland publishes new data. The answer card always shows the
+period. [docs/judges-guide.md](docs/judges-guide.md) is a short guided demonstration.
 
 ## How it works
 
-```
+```text
 question ─▶ interpret ─▶ table metadata ─▶ validated query ─▶ PX-Web API
                                                                     │
 answer card ◀─ ÍS/EN template ◀─ verified observation ◀─ JSON-stat2 decoder
 ```
 
-1. **Interpret** ([interpret.py](src/talnaspor/interpret.py)): normalizes the text (case,
-   accents, þ, æ, ð), then uses keyword rules to choose a table, a measure and the
-   periods. Nothing is guessed: missing or ambiguous details lead to a clarification.
-2. **Validate** ([query.py](src/talnaspor/query.py), [pxweb.py](src/talnaspor/pxweb.py)):
-   fetches the table's metadata and accepts only dimension codes and values that the
-   table actually defines.
-3. **Retrieve** ([pxweb.py](src/talnaspor/pxweb.py)): posts the query to PX-Web and
-   requests JSON-stat2.
-4. **Verify** ([jsonstat.py](src/talnaspor/jsonstat.py)): rejects any response that
-   does not answer exactly the query sent: wrong dimensions, substituted categories,
-   wrong shape, missing or non-numeric values.
-5. **Present** ([answer.py](src/talnaspor/answer.py), [tables.py](src/talnaspor/tables.py)):
-   formats numbers in Icelandic style without rounding away any digit Statistics Iceland
-   reported, and attaches the unit, period, source, table title and a link to the table.
+1. **Interpret.** Explicit rules normalize the text and choose a table, a value for every
+   dimension and the periods. For other topics, a saved catalog of every table is searched,
+   and a planner settles each dimension by rule: the period asked for, a category the
+   question names, otherwise the table's total. If a dimension stays open, or a word in the
+   question is not accounted for, Talnaspor clarifies or suggests tables instead.
+2. **Validate.** Every selected code must exist in the table's metadata, fetched from
+   Statistics Iceland, or no query is sent.
+3. **Retrieve.** The query is posted to the PX-Web API, which returns JSON-stat2.
+4. **Verify.** A response is rejected unless it answers exactly the query sent: the same
+   dimensions and codes, the expected shape, and a real number.
+5. **Present.** Fixed Icelandic and English templates give the figure without rounding away
+   reported digits, with its unit, period, source table and link.
 
-Questions on other topics are matched against a catalog of every table
-([catalog.py](src/talnaspor/catalog.py)). Statistics Iceland's API search is not
-enabled, so [scripts/build_catalog.py](scripts/build_catalog.py) crawls the full table
-tree, in Icelandic and English, into
-[src/talnaspor/data/catalog.json](src/talnaspor/data/catalog.json). Matching tolerates
-Icelandic inflection, weights rare words higher and prefers tables that are still updated.
+**No language model at runtime.** Interpretation and query planning are deterministic code
+in this repository. Every figure shown is a value returned by Statistics Iceland for the
+validated query. The remaining risk is interpretation, that is, choosing the wrong table
+or category. For that reason every answer shows its selections and is evaluated below.
 
-The planner ([planner.py](src/talnaspor/planner.py)) then tries the best tables in turn.
-It answers only when every dimension is settled by explicit rules: the year asked about
-or the latest period (which must be recent); a category the question names; otherwise
-the dimension's total ("Alls", "Samtals"). It skips a table instead of guessing when a
-dimension remains open, when a word in the question is not accounted for by the table
-(so a restriction such as "kvenna" is never ignored), or when the title limits the table
-to a group the question does not mention. The unit comes from the table itself.
+For a step-by-step walk-through, see [docs/how-it-works.md](docs/how-it-works.md). The
+design decision is recorded in
+[docs/adr/001-separate-retrieval.md](docs/adr/001-separate-retrieval.md).
 
-The browser page ([index.html](src/talnaspor/static/index.html)) is a single file with no
-external scripts or fonts. Each answer card shows the figure, the source sentence, a link
-to the table, the response time, and the exact query sent to Statistics Iceland, so
-anyone can check the answer at the source.
+## Data sources and traceability
 
-### API
+- **All figures** come live from Statistics Iceland's public PX-Web API at
+  [px.hagstofa.is](https://px.hagstofa.is). No other data source is used.
+- **Every answer card** shows the source table with a link to it, the period, the unit
+  Statistics Iceland states, and the response time. **About the data** lists every
+  dimension, with its label and code, and the exact query sent.
+- **Catalog answers** are marked "selected automatically" and list each chosen value.
+- **The table catalog** ([src/talnaspor/data/catalog.json](src/talnaspor/data/catalog.json))
+  holds the titles and folders of all 2,102 tables in Icelandic and English. It was built
+  by [scripts/build_catalog.py](scripts/build_catalog.py) because the API's own search is
+  not enabled. It is a snapshot of the table list, not of the data.
 
-`POST /ask` takes `{"question": "...", "lang": "is"}` (`lang` is `is` or `en`, default
-`is`) and returns one of five statuses:
+## Evaluation
+
+The evaluations below measure different things. None of them is an unseen, independent
+test: each was used during development.
+
+| Evaluation | What it measures | Latest result | Status |
+|---|---|---|---|
+| [Curated development set](evaluation/results.md) | Correctness on 65 realistic questions written during development, with expected values fetched independently ([scripts/fetch_expected.py](scripts/fetch_expected.py)) | Last checked-in run, 30 October 2026, covering 62 of the 65 questions: **61 pass, 1 known limitation, 0 failures**. All 48 numerical answers (curated, comparison and catalog) matched. | Development set. The run predates the current code and 3 later questions. |
+| [Understanding set](evaluation/understanding-results.md) | Broader phrasing: paraphrases, restrictions, comparisons, follow-ups and questions that must not be answered (30 questions) | 31 October 2026: **0 wrong answers**. Correct answers to 6 of 13 answerable development questions and 4 of 13 answerable holdout questions; the other 16 answerable questions got safe non-answers. All 4 questions that must not be answered got no figure. | The holdout half was scored at checkpoints during development, and one holdout case influenced a fix. |
+| [External question evaluation](evaluation/external-question-evaluation.md) | 60 bilingual, source-backed example questions published in the Gagnaþon 2026 Track 3 starter repository | First run: 9 correct, 47 safe non-answers, 4 wrong. After the fixes, on the same questions: **16 correct answers, 44 safe non-answers (clarification, suggestions or refusal), 0 wrong answers**. Both 31 October 2026. | The first run shaped the fixes and the same questions were reused, so no longer unseen. |
+
+Three quantities matter, and they differ. **Wrong answers** (a figure that does not match
+the source) were 0 in the latest recorded run of every set. **Numerical answer coverage** is
+limited beyond the curated set: correct figures for 10 of 26 answerable understanding
+questions and 16 of 60 external questions. **Safe non-answers** (a clarification,
+suggestions or a refusal) make up the rest. They give no figure, so they are not counted as
+correct, but they are not wrong. Coverage, not correctness, is the main weakness. The
+results do not show that arbitrary questions are answered correctly. A fresh evaluation on
+questions never seen during development has not yet been run.
+
+[evaluation/heldout.json](evaluation/heldout.json) holds 16 further questions, used to
+compare interpreters. Defects it revealed in the catalog planner were fixed when it was
+added, so it is not an untouched test either.
+
+Offline, `make check` runs 587 tests against real saved Statistics Iceland responses,
+including a check of every curated question's interpretation. `make evaluate` re-runs the
+curated set live. It is slow and can trigger Statistics Iceland's request limit, so do not
+run it shortly before a demonstration.
+
+## Known limitations
+
+- **Coverage.** Outside inflation and population, many questions get a clarification or
+  suggestions instead of an answer. Unusual phrasing gets a clarification.
+- **Catalog units can be general.** A catalog answer uses the unit the table states, which
+  can be general, such as "Fjöldi/hlutfall" (number/percent). Check the selected values to
+  see which one is shown.
+- **One figure or two periods.** No time series, charts, ratios or calculations across
+  tables. A question that asks two things is told to ask one at a time.
+- **Relative periods.** "Last year" (population) and spans such as "síðustu fimm ár" work.
+  "Last month" and "ten years ago" get a clarification.
+- **Follow-ups in a few fixed forms**: a sex, an age group, a year or a place.
+- **Table search uses word matching.** It can miss a table described in other words, and
+  it reflects the catalog as of its last crawl.
+- **English depends on Statistics Iceland's English tables.** A table without an English
+  version keeps its Icelandic labels, and says so.
+- **Current-year population.** Only the 1 January figure is published for the current
+  year, so other measures for that year are refused.
+- **Live data only.** Talnaspor needs px.hagstofa.is, which limits requests per network
+  address (HTTP 429). Identical requests are cached for an hour and a refused request is
+  retried once. Beyond that, Talnaspor reports that Statistics Iceland is limiting requests.
+
+## API
+
+`POST /ask` takes `{"question": "...", "lang": "is"}` (`lang` is `is` or `en`) and returns:
 
 | `status` | Meaning | HTTP |
 |---|---|---|
 | `answer` | A verified figure in `answer` (`kind` is `curated` or `catalog`), or a change between two periods in `comparison` | 200 |
-| `suggestions` | No direct answer; the best-matching official tables are in `tables`, and `message` names any choice needed | 200 |
-| `clarification` | The question needs more detail; `message` says what | 200 |
-| `refusal` | No verified figure: `reason` is `unavailable` (outside the table's range, which `message` states), `unpublished` (marked `..`) or `unverified`; technical detail is in `detail` | 200 |
-| `error` | Statistics Iceland could not be reached | 502 |
+| `suggestions` | No direct answer. The best-matching tables are in `tables`. | 200 |
+| `clarification` | The question needs more detail. `message` says what. | 200 |
+| `refusal` | No verified figure. `reason` is `unavailable`, `unpublished` or `unverified`. | 200 |
+| `error` | Statistics Iceland could not be reached (502) or is limiting requests (503), or an unexpected failure occurred (500) | 502 / 503 / 500 |
 
 ```sh
 curl -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
      -d '{"question": "Hver er verðbólgan núna?"}'
 ```
 
-`POST /ask/batch` takes up to 10 questions, `{"questions": ["...", "..."], "lang": "is"}`,
-and returns
-`{"answers": [...]}`: one `/ask` response per question, in order. Each has its own
-status, so a question that fails does not fail the others, and the call returns 200.
-
-```sh
-curl -X POST http://127.0.0.1:8000/ask/batch -H 'Content-Type: application/json' \
-     -d '{"questions": ["Hver er verðbólgan núna?", "Hvað búa margir á Íslandi?"]}'
-```
-
-Interactive API documentation is at <http://127.0.0.1:8000/docs>.
-
-## Evaluation
-
-[evaluation/questions.json](evaluation/questions.json) holds 65 realistic questions, 13 of
-them answered in English. Each
-expected figure was fetched by
-[scripts/fetch_expected.py](scripts/fetch_expected.py), which shares no code with
-Talnaspor's table configuration, query builder or decoder, and uses a different response
-format.
-
-```sh
-make evaluate    # Ask every question live and write evaluation/results.md (slow)
-```
-
-Latest full run, on 31 October 2026: **64 of 65 pass, 1 documented limitation, 0
-failures**. This includes 14 answers
-from catalog tables, each checked for the table, period and figure (and, in Icelandic,
-every selected value), 4 refusals, and 3 questions where the expected table must be
-among those suggested. See
-[evaluation/results.md](evaluation/results.md). The script pauses between questions, but
-Statistics Iceland's request limit can still interrupt it; run it well before a demo.
-[evaluation/heldout.json](evaluation/heldout.json) holds 16 further questions, never used to
-tune the rules, for comparing interpreters. Every question's interpretation is also
-checked offline by `make check`.
-
-[evaluation/understanding.json](evaluation/understanding.json) holds 30 questions written
-before the changes they measure (paraphrases, restrictions, comparisons, follow-ups and
-questions that must be refused), half of them held out from development. Every response
-is recorded, so `make understanding` replays it offline. Latest: no wrong answers; 6 of 13
-answerable development questions and 4 of 13 held-out ones answered (2 of 13 each before),
-and all 4 that must be refused refused. See
-[evaluation/understanding-results.md](evaluation/understanding-results.md). One expected
-value was wrong until 31 October: an immigrants table that also counts the second
-generation was accepted for “How many immigrants live in Iceland?”. The external check
-below found it; Talnaspor's answer was then wrong too, and is now fixed.
-
-**External check.** The Gagnaþon Track 3 starter's 60 bilingual, source-backed questions:
-16 correct, 44 safe (clarification, suggestions or refusal) and 0 wrong, from 9 correct and
-4 wrong before the fixes it prompted. Questions that ask two things or need a ratio are
-refused. See [evaluation/track3-results.md](evaluation/track3-results.md).
-
-## Known limitations
-
-- **Curated answers from two tables.** The consumer price index and key population figures
-  have tailored wording, units and comparisons. Adding one means adding its configuration
-  to [tables.py](src/talnaspor/tables.py) and keywords to
-  [interpret.py](src/talnaspor/interpret.py).
-- **Catalog answers are cautious.** They give one figure, or a comparison of two periods
-  when the measure's kind is clear, with the unit Statistics Iceland states for the table,
-  which can be general ("Fjöldi/hlutfall"). Many questions get a choice or suggestions
-  instead of an answer.
-- **Suggestions use word matching.** They can miss a table described with different
-  words, and they reflect the catalog as of its last crawl, which
-  `scripts/build_catalog.py` refreshes.
-- **Keyword rules.** Unusual phrasing gets a clarification rather than an answer. A local
-  language model (Qwen3 8B) that reworded missed questions was tested on the held-out
-  questions; it added one answer, below the agreed bar, so it is not included.
-- **Follow-ups in a few fixed forms.** A sex, an age group, a year or a place; anything
-  else is treated as a new question.
-- **Relative periods.** "Last year" (population) and spans such as "síðustu fimm ár"
-  work. "Last month" and "ten years ago" get a clarification instead of an answer.
-- **Two periods at most.** There are no time series or charts.
-- **English depends on Statistics Iceland's English tables.** Catalog answers from a table
-  without an English version keep its Icelandic labels and say so. In English table
-  suggestions, the top-level folder name stays in Icelandic.
-- **The latest year is incomplete for population.** Only the 1 January figure is
-  published for the current year, so other measures for that year are refused.
-- **Live data only.** Talnaspor needs network access to px.hagstofa.is, which limits
-  requests per network address (HTTP 429), sometimes for minutes after heavy use.
-  Identical requests are cached for an hour and a refused request is retried once;
-  beyond that, Talnaspor says Statistics Iceland is limiting requests.
-- **Curated answers are national headline figures.** A question naming anything they do
-  not cover, such as a town, a sub-index or another country, is passed to the table
-  search instead, which answers only if a table settles every word.
-
-## Runtime and data
-
-- **Software:** Python with FastAPI, Uvicorn, Requests, Pydantic and pandas, all free
-  and open-source. No paid or hosted services and no language models are used at
-  runtime. The only external service contacted is Statistics Iceland's public API.
-- **Data:** Statistics Iceland (Hagstofa Íslands), retrieved live from
-  [px.hagstofa.is](https://px.hagstofa.is).
-- **Step-by-step guide:** [docs/how-it-works.md](docs/how-it-works.md) traces a question
-  through the data, interpretation, query and verification.
-- **Design decision:** [docs/adr/001-separate-retrieval.md](docs/adr/001-separate-retrieval.md).
-- **Licence:** [MIT](LICENSE). Talnaspor is free to use, modify and share.
-
-## Development and runtime independence
-
-- **Development:** Talnaspor was developed with the help of AI coding assistants, Claude
-  Code and Codex, which assisted in writing, testing and reviewing the code. The team
-  directed and reviewed the work.
-- **Runtime:** the competition build interprets questions, plans queries, validates them,
-  calculates changes and formats answers with deterministic code in this repository. It
-  performs no language-model inference. It runs on open-source software (Python,
-  FastAPI, Uvicorn, Requests, Pydantic).
-- **Data:** every statistical observation comes from Statistics Iceland's PX-Web API.
-- **Optional local model:** local inference with the open-weight Qwen3 8B through Ollama
-  was evaluated experimentally; it added one held-out answer, below the agreed bar, and
-  is not part of the competition build.
-
-Enforced in code ([runtime.py](src/talnaspor/runtime.py)):
-
-- Every request goes through one function, which refuses any address other than
-  `https://px.hagstofa.is/pxis/api/v1/is/…` or `…/pxen/api/v1/en/…`, and any redirect.
-  A refused request is a logged error, never an answer.
-- The server does not start if `OLLAMA_URL` points anywhere but this machine, or if
-  `TALNASPOR_LLM_MODEL` names a hosted ("cloud") model or another provider's model.
-- Telemetry export is switched off, whatever `OTEL_*` environment variables say.
-
-Not enforced in code: a library opening its own connections, or a proxy set with
-`HTTPS_PROXY`. Those need network-level controls, such as a firewall that allows only
-px.hagstofa.is.
-
-**Before enabling a local model (after the competition):** call the model only through
-an endpoint taken from `runtime.py`, so the startup checks apply; pin the model by digest
-and check with `ollama show` that it runs locally; refuse redirects from Ollama as from
-PX-Web; deploy with an egress firewall that allows only px.hagstofa.is and loopback; and
-merge only after it passes the held-out evaluation criteria.
+`POST /ask/batch` takes up to 10 questions, `{"questions": [...], "lang": "is"}`. It returns
+one `/ask` response per question, each with its own status.
 
 ## Development
 
 ```sh
 make sync          # Install the project and development tools from uv.lock
-make run           # Start the server at http://127.0.0.1:8000 (API docs at /docs)
-make evaluate      # Ask the evaluation questions live; write evaluation/results.md
-make check         # Check the lockfile, lint, formatting, types, and tests
-make format        # Format Python code
-make typecheck     # Type-check source and tests with mypy
-make test          # Run tests
-make build         # Create source and wheel distributions in dist/
-make clean         # Remove generated artifacts and caches; preserve .venv
-make distclean     # Also remove .venv; run make sync to start again
+make check         # Lockfile, lint, formatting, types and tests (offline)
+make test          # Tests only; pass options with PYTEST_ARGS='-q -k query'
+make evaluate      # Re-run the curated set live; writes evaluation/results.md (slow)
+make help          # Every target
 ```
 
-Run `make help` for every target. Pass pytest options with, for example,
-`make test PYTEST_ARGS='-q -k query'`. The tests run offline, using real Statistics
-Iceland responses saved in [tests/fixtures](tests/fixtures).
-`scripts/capture_fixtures.py` refreshes them, and `scripts/build_catalog.py` refreshes
-the table catalog (takes several minutes).
+`scripts/capture_fixtures.py` refreshes the saved test responses, and
+`scripts/build_catalog.py` refreshes the table catalog (several minutes).
+
+## Technology, AI use and licence
+
+- **Software:** Python, FastAPI, Uvicorn, Requests, Pydantic and pandas, all free and
+  open-source. The browser page is one HTML file with no external scripts or fonts.
+- **Runtime independence:** the only external service contacted is Statistics Iceland's
+  API. [runtime.py](src/talnaspor/runtime.py) refuses any other address and any redirect,
+  and switches off telemetry export. It cannot stop a library from opening its own
+  connections or a proxy set with `HTTPS_PROXY`; that needs network-level controls.
+- **Language model:** none at runtime. A local open-weight model (Qwen3 8B through Ollama)
+  was tested for rewording missed questions. It added one answer on the held-out
+  questions, below the agreed bar, so it is not part of this build.
+- **Development:** Talnaspor was written with the help of AI coding assistants (Claude Code
+  and Codex). The team directed and reviewed the work.
+- **Licence:** [MIT](LICENSE).

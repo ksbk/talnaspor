@@ -125,9 +125,15 @@ demo itself makes no new requests. See [demo-checklist.md](demo-checklist.md).
 - **The evaluation set** ([questions.json](../evaluation/questions.json)) compares answers
   with values fetched by [fetch_expected.py](../scripts/fetch_expected.py), which shares no
   code with Talnaspor and uses a different response format.
-- **Held-out and adversarial questions** ([heldout.json](../evaluation/heldout.json)) were
-  never used to tune the rules. They found the real defects, such as the Reykjavík and
-  “capital” cases, which were fixed.
+- **Further and adversarial questions** ([heldout.json](../evaluation/heldout.json)) found
+  real defects, such as the Reykjavík and “capital” cases, which were fixed. Because they
+  shaped those fixes, they are not an untouched test; nor are the understanding set's
+  holdout half or the [external question evaluation](../evaluation/external-question-evaluation.md),
+  which also guided fixes. A test on questions never
+  seen during development is still to be done.
+- **What this does not prove.** The number shown always comes from Statistics Iceland, but
+  the interpretation can still pick the wrong table or category. That is why every answer
+  lists its selections, and why many questions get a clarification or suggestions instead.
 
 ## 8. How it maps to the judging criteria
 
@@ -140,10 +146,11 @@ demo itself makes no new requests. See [demo-checklist.md](demo-checklist.md).
 | Deployment | `pip install -r requirements.txt` and `uvicorn app:app` from a fresh clone |
 | User value | One figure from 2,102 tables, with its source |
 
-**The honest weak spot.** The official project description expects a large language
-model; Talnaspor interprets questions with deterministic rules. The argument: rules cannot
-invent numbers, and a language model is the next step, proposing codes that pass through
-the same validation (steps 5 and 7).
+**The honest weak spot.** Talnaspor uses no language model at runtime. It interprets
+questions with deterministic rules and retrieves every figure directly from the PX-Web API.
+The rules only choose codes; they do not generate numbers. The cost is coverage: phrasing
+the rules do not recognise gets a clarification or suggestions. A language model could be a
+later step, proposing codes that pass through the same validation (steps 5 and 7).
 
 ## 9. Check yourself
 

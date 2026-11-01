@@ -1,6 +1,7 @@
 # Talnaspor demo checklist: Sunday 1 November, 20:00
 
-Ten minutes per team. Print this page.
+Ten minutes per team. Print this page. For a short guide for the judges, see
+[judges-guide.md](judges-guide.md).
 
 ## Before the day (by Sunday 16:00)
 
@@ -10,7 +11,8 @@ Ten minutes per team. Print this page.
       or invite the organizers: GitHub › Settings › Collaborators.
 - [ ] **Share the slides** from the deck's Share menu, and export a **PDF copy** to the laptop.
 - [ ] **Record a backup video** (2–3 minutes) of the live demo below: QuickTime › File ›
-      New Screen Recording. Save it to the desktop.
+      New Screen Recording. Save it to the desktop. If you play it, say that it is a
+      recording and give the date it was made.
 - [ ] **Rehearse once to the clock** (timings below).
 - [ ] **Spot-check five figures by hand** on px.hagstofa.is (for example the first three
       answers below), so “verified against the official source” is your own claim.
@@ -20,7 +22,7 @@ Ten minutes per team. Print this page.
 - [ ] Wi-Fi reaches Statistics Iceland (expect `200`):
       `curl -s -o /dev/null -w "%{http_code}\n" https://px.hagstofa.is/pxis/api/v1/is/`
 - [ ] Phone hotspot ready as a fallback network.
-- [ ] Update and check: `git pull && make sync && make check` (expect 431 tests passed).
+- [ ] Update and check: `git pull && make sync && make check` (expect 587 tests passed).
       `make check` makes no requests to Statistics Iceland.
 - [ ] **Do not run `make evaluate` or any bulk testing on the demo day.** It sends hundreds
       of requests and can get the network address blocked for 10 minutes or more.
@@ -57,7 +59,7 @@ publishes new data, and the card always shows the period.
 | 2 | ÍS | *Open the table link on card 1* | Hagstofa’s CPI table | Check the figure at the source |
 | 3 | EN | *Switch to EN.* How many people live in Iceland? | **394,324 people**, 2026 | English answer |
 | 4 | EN | What is the population of Reykjavík in 2026? | **139,804** | Any of 2,102 tables; open “About the data” for every selection |
-| 5 | ÍS | Hvernig breyttist atvinnuleysi frá 2020 til 2025? | **−2,0 prósentustig** (6,3 → 4,3) | Comparison from a catalog table |
+| 5 | ÍS | Hvernig breyttist atvinnuleysi frá 2020 til 2025? | **-2,0 prósentustig** (6,3 → 4,3) | Comparison from a catalog table |
 | 6 | EN | What is the population of Iceland in 2026? | **394,324 people** | (sets up the follow-up) |
 | 7 | EN | What about women? | **191,927**, “Understood as a follow-up …” | Follow-up, shown as understood |
 | 8 | ÍS | Hver var verðbólgan árið 2024? | “Tilgreindu mánuð …” | Ambiguous → focused question |
@@ -77,15 +79,18 @@ uv run --locked python scripts/serve_recorded.py --port 8001
 ```
 
 Open <http://127.0.0.1:8001> and keep to the questions above; others may get only
-suggestions. **Say so when using it:** “These are Statistics Iceland’s responses
-recorded on 31 October; response times are not live.” The backup video is the last resort.
+suggestions. **The page looks exactly as in a live demo.** It still says it is fetching
+data from Statistics Iceland and shows a response time, and nothing on screen marks the
+replay. So **say so before the first question**: “No network here, so these are Statistics
+Iceland’s responses recorded on 31 October; nothing is fetched live, and the response times
+are not live.” The backup video is the last resort, and is also announced as a recording.
 
 ## If something goes wrong
 
 | Problem | Do this |
 |---|---|
 | Red card “Ekki náðist samband við Hagstofu” / “could not be reached” | Switch to the phone hotspot and ask again. Still failing: the recorded backup on port 8001 (above), then the backup video. |
-| “Hagstofa Íslands takmarkar fjölda fyrirspurna” / “is limiting requests” | Rate limit. Ask a question you already asked (served from the cache), or wait a minute. Still blocked: play the backup video. Say so: it is Statistics Iceland’s limit. |
+| “Hagstofa Íslands takmarkar fjölda fyrirspurna” / “is limiting requests” | Rate limit. Ask a question you already asked (served from the cache), or wait a minute. Still blocked: play the backup video, and say that it is a recording and that the block is Statistics Iceland’s limit. |
 | The page shows the wrong language | Click **ÍS** or **EN**; the choice is remembered. |
 | The page looks out of date | Hard reload: Cmd+Shift+R. |
 | Port 8000 is busy | `uv run --locked uvicorn talnaspor.app:app --port 8002` and open port 8002. |

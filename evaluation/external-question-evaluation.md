@@ -1,4 +1,15 @@
-# Track 3 benchmark: an external check
+# External question evaluation
+
+The 60 questions in this report are the example questions published in the Gagnaþon 2026
+Track 3 starter repository (`questions/examples.jsonl`, linked below). They were first run
+against Talnaspor on 31 October 2026: 9 correct, 47 safe non-answers and 4 wrong. Those
+results informed development: the wrong answers were fixed, and the same 60 questions were
+then reused to measure the result after the fixes: 16 correct, 44 safe non-answers and 0
+wrong. This is therefore not an independent, unseen evaluation.
+
+The question-level results below are as recorded on 31 October 2026. The "Shown" column
+was cut at 60 characters when the report was generated. The full replies are not part of
+this report, so the cut text is left as recorded.
 
 The Gagnaþon 2026 Track 3 starter's 60 bilingual, source-backed questions ([questions/examples.jsonl](https://github.com/SyedMuhammadAzhar/gagnvist-starter/blob/main/questions/examples.jsonl), fetched 31 October 2026), each asked through `/ask` in its own language on 31 October 2026. CORRECT: the expected figure. SAFE: a clarification, suggestions or a refusal. WRONG: any other figure. Hard questions ask two things at once or need a ratio, which Talnaspor does not calculate.
 
