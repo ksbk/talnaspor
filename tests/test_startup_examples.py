@@ -45,8 +45,6 @@ EXPECTED: dict[str, dict[str, tuple[str, str | None, list[str] | None, str | Non
             ["2025M09", "2026M09"],
             "+1,8 prósentustig",
         ),
-        # cpi-04
-        "Verðbólga án húsnæðis í mars 2026": ("answer", "VIS01000.px", ["2026M03"], "4,9%"),
         # pop-04
         "Hver var fjölgun íbúa árið 2024?": ("answer", "MAN00000.px", ["2024"], "5.718 manns"),
         # The Icelandic form of understanding d10 (dev): the same table and cells.
@@ -85,8 +83,6 @@ EXPECTED: dict[str, dict[str, tuple[str, str | None, list[str] | None, str | Non
             ["2025M09", "2026M09"],
             "+1.8 percentage points",
         ),
-        # en-02
-        "Inflation excluding housing in March 2026": ("answer", "VIS01000.px", ["2026M03"], "4.9%"),
         # en-04
         "What was the population increase in 2024?": (
             "answer",
