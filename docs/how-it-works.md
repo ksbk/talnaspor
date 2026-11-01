@@ -187,7 +187,7 @@ cases, which were fixed when the set was added, so it is not an untouched test e
 the interpretation can still pick the wrong table or category. That is why every answer
 lists its selections, and why many questions get a clarification or suggestions instead.
 
-Offline, `make check` runs 643 tests against real saved Statistics Iceland responses,
+Offline, `make check` runs 650 tests against real saved Statistics Iceland responses,
 including a check of every curated question's interpretation. Two of them record a known
 limitation and are expected to fail (`xfail`). `make evaluate` re-runs the
 curated set live. It is slow and can trigger Statistics Iceland's request limit, so do not

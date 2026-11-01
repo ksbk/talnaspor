@@ -99,18 +99,27 @@
     border: 0;
     font-weight: 600;
   }
-  /* One scrollable row, so the conversation, not the examples, fills the screen. */
+  /* The examples are folded away at first, so the question box stays the focus. */
+  .explore { margin-bottom: 20px; }
+  .disclosure {
+    padding: 4px 2px;
+    font-size: 0.9375rem;
+    color: var(--accent);
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
   .examples {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    margin-bottom: 20px;
-    scrollbar-width: thin;
+    margin: 8px 0 0;
   }
+  .examples[hidden] { display: none; }
   .examples button {
-    flex: 0 0 auto;
-    white-space: nowrap;
+    text-align: left;
     padding: 6px 12px;
     font-size: 0.875rem;
     color: var(--text);
@@ -220,7 +229,11 @@
     <button id="send" type="submit"></button>
   </form>
 
-  <div class="examples" id="examples" role="group"></div>
+  <div class="explore">
+    <button type="button" id="examples-toggle" class="disclosure"
+            aria-expanded="false" aria-controls="examples"></button>
+    <div class="examples" id="examples" role="group" hidden></div>
+  </div>
 
   <section id="log" aria-live="polite"></section>
 </main>
@@ -233,6 +246,8 @@
       placeholder: "t.d. Hver er verðbólgan núna?",
       send: "Spyrja",
       examplesLabel: "Dæmi um spurningar",
+      examplesShow: "Skoða dæmi um spurningar",
+      examplesHide: "Fela dæmi um spurningar",
       examples: [
         "Hver er verðbólgan núna?",
         "Hvað búa margir á Íslandi?",
@@ -270,6 +285,8 @@
       placeholder: "e.g. What is inflation now?",
       send: "Ask",
       examplesLabel: "Example questions",
+      examplesShow: "Explore example questions",
+      examplesHide: "Hide example questions",
       examples: [
         "What is inflation now?",
         "How many people live in Iceland?",
@@ -307,6 +324,7 @@
   const input = document.getElementById("question");
   const log = document.getElementById("log");
   const examples = document.getElementById("examples");
+  const examplesToggle = document.getElementById("examples-toggle");
   let lang = "is";
   // The last question as the server understood it, which a follow-up such as
   // "What about women?" narrows.
@@ -325,6 +343,7 @@
     document.getElementById("send").textContent = t("send");
     input.placeholder = t("placeholder");
     examples.setAttribute("aria-label", t("examplesLabel"));
+    showExamples(!examples.hidden);
     examples.textContent = "";
     for (const question of t("examples")) {
       const button = element("button", "", question);
@@ -335,6 +354,14 @@
     document.querySelectorAll(".languages button").forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
     });
+  }
+
+  // Folded or unfolded, with the toggle's label and state to match; a language change keeps
+  // the current state.
+  function showExamples(open) {
+    examples.hidden = !open;
+    examplesToggle.setAttribute("aria-expanded", String(open));
+    examplesToggle.textContent = t(open ? "examplesHide" : "examplesShow");
   }
 
   function element(tag, className, text) {
@@ -564,6 +591,8 @@
   document.querySelectorAll(".languages button").forEach((button) => {
     button.addEventListener("click", () => setLanguage(button.dataset.lang));
   });
+
+  examplesToggle.addEventListener("click", () => showExamples(examples.hidden));
 
   let saved = null;
   try { saved = localStorage.getItem("talnaspor-lang"); } catch (error) {}
