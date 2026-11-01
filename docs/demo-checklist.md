@@ -22,7 +22,7 @@ Ten minutes per team. Print this page. For a short guide for the judges, see
 - [ ] Wi-Fi reaches Statistics Iceland (expect `200`):
       `curl -s -o /dev/null -w "%{http_code}\n" https://px.hagstofa.is/pxis/api/v1/is/`
 - [ ] Phone hotspot ready as a fallback network.
-- [ ] Update and check: `git pull && make sync && make check` (expect 587 tests passed).
+- [ ] Update and check: `git pull && make sync && make check` (expect 641 passed, 2 xfailed).
       `make check` makes no requests to Statistics Iceland.
 - [ ] **Do not run `make evaluate` or any bulk testing on the demo day.** It sends hundreds
       of requests and can get the network address blocked for 10 minutes or more.
