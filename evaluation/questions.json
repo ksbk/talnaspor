@@ -1,6 +1,6 @@
 {
   "as_of": "2026-10-30",
-  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate. Suggestions pass when the named table is among the tables suggested. Catalog answers pass when the table, period, every selected category and the value match. Questions marked lang 'en' get English replies; their catalog answers are checked for table, period and value.",
+  "notes": "Expected values come from Statistics Iceland's PX-Web API in its legacy json format, fetched by scripts/fetch_expected.py independently of Talnaspor's query builder and JSON-stat2 decoder. Periods for 'latest' questions are as of the date above. Entries with a 'limitation' document current behaviour that is known to be inadequate. Suggestions pass when the named table is among the tables suggested. Catalog answers pass when the table, period, every selected category and the value match. Questions marked lang 'en' get English replies; their catalog answers are checked for table, period and value. Entries with 'changed' record an expectation changed after the last checked-in run of evaluation/results.md, and why; 'previous' keeps the earlier expectation exactly.",
   "questions": [
     {
       "id": "cpi-01",
@@ -239,24 +239,29 @@
     {
       "id": "cpi-13",
       "question": "Hvernig hefur verðbólgan þróast?",
-      "expect": "comparison",
-      "interpretation": {
-        "table": "cpi",
-        "selections": {
-          "Mánuður": "latest",
-          "Vísitala": "CPI",
-          "Liður": "change_A"
+      "expect": "clarification",
+      "message": "Tilgreindu tímabilið sem á að bera saman",
+      "changed": "2026-11-01: expected a comparison over a 12-month span to the latest month (2025M10 to 2026M10: 4.3 to 5.9), a span the question does not state. A change with no stated period is now asked again. evaluation/results.md (2026-10-30) records the earlier expectation.",
+      "previous": {
+        "expect": "comparison",
+        "interpretation": {
+          "table": "cpi",
+          "selections": {
+            "Mánuður": "latest",
+            "Vísitala": "CPI",
+            "Liður": "change_A"
+          },
+          "compare_from": "latest-12"
         },
-        "compare_from": "latest-12"
-      },
-      "periods": [
-        "2025M10",
-        "2026M10"
-      ],
-      "values": [
-        4.3,
-        5.9
-      ]
+        "periods": [
+          "2025M10",
+          "2026M10"
+        ],
+        "values": [
+          4.3,
+          5.9
+        ]
+      }
     },
     {
       "id": "cpi-14",
@@ -424,23 +429,28 @@
     {
       "id": "pop-09",
       "question": "How has Iceland's population changed?",
-      "expect": "comparison",
-      "interpretation": {
-        "table": "population",
-        "selections": {
-          "Ár": "latest",
-          "Eining": "0"
+      "expect": "clarification",
+      "message": "Tilgreindu tímabilið sem á að bera saman",
+      "changed": "2026-11-01: expected a comparison over a 10-year span to the latest year (2016 to 2026: 326036 to 394324), a span the question does not state. A change with no stated period is now asked again. evaluation/results.md (2026-10-30) records the earlier expectation.",
+      "previous": {
+        "expect": "comparison",
+        "interpretation": {
+          "table": "population",
+          "selections": {
+            "Ár": "latest",
+            "Eining": "0"
+          },
+          "compare_from": "latest-10"
         },
-        "compare_from": "latest-10"
-      },
-      "periods": [
-        "2016",
-        "2026"
-      ],
-      "values": [
-        326036,
-        394324
-      ]
+        "periods": [
+          "2016",
+          "2026"
+        ],
+        "values": [
+          326036,
+          394324
+        ]
+      }
     },
     {
       "id": "pop-10",
@@ -851,23 +861,28 @@
       "id": "en-03",
       "lang": "en",
       "question": "How has Iceland's population changed?",
-      "expect": "comparison",
-      "interpretation": {
-        "table": "population",
-        "selections": {
-          "Ár": "latest",
-          "Eining": "0"
+      "expect": "clarification",
+      "message": "Please name the periods to compare",
+      "changed": "2026-11-01: expected a comparison over a 10-year span to the latest year (2016 to 2026: 326036 to 394324), a span the question does not state. A change with no stated period is now asked again. evaluation/results.md (2026-10-30) records the earlier expectation.",
+      "previous": {
+        "expect": "comparison",
+        "interpretation": {
+          "table": "population",
+          "selections": {
+            "Ár": "latest",
+            "Eining": "0"
+          },
+          "compare_from": "latest-10"
         },
-        "compare_from": "latest-10"
-      },
-      "periods": [
-        "2016",
-        "2026"
-      ],
-      "values": [
-        326036,
-        394324
-      ]
+        "periods": [
+          "2016",
+          "2026"
+        ],
+        "values": [
+          326036,
+          394324
+        ]
+      }
     },
     {
       "id": "en-04",

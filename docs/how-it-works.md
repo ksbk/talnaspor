@@ -170,6 +170,15 @@ correct, but they are not wrong. Coverage, not correctness, is the main weakness
 results do not show that arbitrary questions are answered correctly. A fresh evaluation on
 questions never seen during development has not yet been run.
 
+**Changed expectations, 1 November 2026.** Three curated questions asked about a change
+without stating the periods: `cpi-13` (*Hvernig hefur verðbólgan þróast?*), `pop-09` and
+`en-03` (*How has Iceland's population changed?*). They were answered over a span Talnaspor
+chose itself (12 months or 10 years) and passed in the 30 October run. That span was not
+asked for, so they now expect a clarification asking for the periods. The 30 October report
+is kept unchanged; [questions.json](../evaluation/questions.json) records each change in a
+`changed` field. The same rule now applies to catalog tables, which answered such a
+question with a single latest figure.
+
 [heldout.json](../evaluation/heldout.json) holds 16 further and adversarial questions, used
 to compare interpreters. They found real defects, such as the Reykjavík and “capital”
 cases, which were fixed when the set was added, so it is not an untouched test either.
@@ -194,6 +203,10 @@ run it shortly before a demonstration.
   tables. A question that asks two things is told to ask one at a time.
 - **Relative periods.** "Last year" (population) and spans such as "síðustu fimm ár" work.
   "Last month" and "ten years ago" get a clarification.
+- **A change needs its periods.** "How has the population changed?" gets a clarification
+  asking which periods to compare; "since 2000", "from 2015 to 2025" or "over the last
+  decade" are answered. Some change words, such as "fjölgað", are not recognised as asking
+  for a change on catalog topics, and get suggestions instead.
 - **Follow-ups in a few fixed forms**: a sex, an age group, a year or a place.
 - **Table search uses word matching.** It can miss a table described in other words, and
   it reflects the catalog as of its last crawl. The catalog is a snapshot of the table

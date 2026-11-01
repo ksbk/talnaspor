@@ -3,6 +3,8 @@ import pytest
 from talnaspor.answer import LATEST, before_latest
 from talnaspor.catalog import question_words
 from talnaspor.interpret import (
+    COMPARE_MONTHS,
+    COMPARE_YEARS,
     Clarification,
     Interpretation,
     curated_terms_cover,
@@ -92,7 +94,7 @@ def test_asks_for_clarification(question: str, message: str) -> None:
     ("question", "expected"),
     [
         (
-            "How has Iceland's population changed?",
+            "How has Iceland's population changed over the last decade?",
             Interpretation("population", {"Ár": LATEST, "Eining": "0"}, before_latest(10)),
         ),
         (
@@ -108,11 +110,11 @@ def test_asks_for_clarification(question: str, message: str) -> None:
             Interpretation("population", {"Ár": LATEST, "Eining": "0"}, "2000"),
         ),
         (
-            "Hvernig hefur verðbólgan þróast?",
+            "Hvernig hefur verðbólgan þróast síðustu tíu árin?",
             Interpretation(
                 "cpi",
                 {"Mánuður": LATEST, "Vísitala": "CPI", "Liður": "change_A"},
-                before_latest(12),
+                before_latest(120),
             ),
         ),
         (
@@ -550,9 +552,9 @@ CLARIFY = None
         ("What was the population of Iceland on 1 December 2025?", CLARIFY),
         ("Hver var mannfjöldinn í september 2025?", CLARIFY),
         ("How did the population change between January and June 2025?", CLARIFY),
-        # Population: no period stated, so the stated default applies.
-        ("How has the population changed?", comparison("pop", 10)),
-        ("Hvernig hefur mannfjöldinn breyst?", comparison("pop", 10)),
+        # Population: a change with no period stated is asked again, never given a span.
+        ("How has the population changed?", CLARIFY),
+        ("Hvernig hefur mannfjöldinn breyst?", CLARIFY),
         # Inflation: last 12 months is the annual change.
         (
             "Inflation over the last 12 months",
@@ -651,13 +653,13 @@ def test_refuses_a_zero_or_negative_duration(question: str) -> None:
             "What was the population 1 year ago?",
             Interpretation("population", {"Ár": before_latest(1), "Eining": "0"}),
         ),
-        # A missing duration takes the stated default.
-        ("How has the population changed?", comparison("pop", 10)),
-        ("Hvernig hefur verðbólgan breyst?", comparison("cpi", 12)),
+        # A missing duration is asked for, not assumed.
+        ("How has the population changed?", COMPARE_YEARS),
+        ("Hvernig hefur verðbólgan breyst?", COMPARE_MONTHS),
     ],
 )
-def test_keeps_valid_spans_and_defaults_only_a_missing_one(
-    question: str, expected: Interpretation
+def test_keeps_valid_spans_and_asks_for_a_missing_one(
+    question: str, expected: Interpretation | Clarification
 ) -> None:
     assert interpret(question) == expected
 

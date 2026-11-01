@@ -17,6 +17,7 @@ from talnaspor.answer import Answer, Comparison, Lang, answer, compare, format_p
 from talnaspor.catalog import TableHit, question_words, search, table, topic_word
 from talnaspor.interpret import (
     CHANGE,
+    COMPARE_YEARS,
     INVALID_SPAN,
     INVALID_YEAR,
     NOT_FOUND,
@@ -116,6 +117,12 @@ Question = Annotated[str, Field(min_length=1, max_length=500)]
 # "Last year" as a calendar year; "the past year" is an interval, which the planner cannot
 # answer with one year's figure.
 CALENDAR_LAST_YEAR = re.compile(r"\b(last year|previous year|i fyrra|sidasta ar)\b")
+
+# A named change measure ("annual change", "árleg breyting") is one period's figure, not a
+# comparison between periods. Icelandic compounds ("ársbreyting") never match CHANGE.
+NAMED_CHANGE = re.compile(
+    r"\b(annual|monthly|yearly|quarterly|year on year|month on month|arleg\w*|manadarleg\w*)\b"
+)
 
 # Two questions in one: "…, and how many…", "… og hve margir…".
 SEVERAL_QUESTIONS = re.compile(
@@ -324,6 +331,15 @@ def respond_to(question: str, lang: Lang = "is") -> AskResponse:
             # The planner reads named years and months only; a relative period it cannot
             # use is refused rather than dropped (which answered with the latest figure).
             return respond(status="clarification", message=RELATIVE_MESSAGE.text(lang))
+        if (
+            span is None
+            and CHANGE.search(text)
+            and not NAMED_CHANGE.search(text)
+            and not re.search(YEAR, text)
+        ):
+            # A change with no periods to compare is asked again, not answered with the
+            # latest single figure (a different question) or a span the user did not state.
+            return respond(status="clarification", message=COMPARE_YEARS.text(lang))
         hits = candidates(asked, tables)
         try:
             planned: Answer | Comparison | Choice | None = (

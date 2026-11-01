@@ -188,6 +188,19 @@ POPULATION_MONTH = Clarification(
     "Mannfjöldi er talinn 1. janúar ár hvert. Tilgreindu ár, til dæmis „2025“.",
     "Population is counted on 1 January each year. Please name a year, for example “2025”.",
 )
+# A change asked for without the periods to compare: a span is never assumed.
+COMPARE_YEARS = Clarification(
+    "Tilgreindu tímabilið sem á að bera saman, til dæmis „frá 2015 til 2025“, „frá 2000“ "
+    "eða „síðustu tíu ár“.",
+    "Please name the periods to compare, for example “from 2015 to 2025”, “since 2000” or "
+    "“over the last ten years”.",
+)
+COMPARE_MONTHS = Clarification(
+    "Tilgreindu tímabilið sem á að bera saman, til dæmis „september 2025 og 2026“ eða "
+    "„síðustu tíu árin“.",
+    "Please name the periods to compare, for example “September 2025 and 2026” or “over "
+    "the last ten years”.",
+)
 MONTHLY_SPAN = Clarification(
     "Mánaðarbreyting er breyting eins mánaðar. Tilgreindu mánuð, til dæmis „september "
     "2026“, eða spyrðu um verðbólgu síðustu 12 mánuði.",
@@ -387,9 +400,7 @@ def _interpret_cpi(
 
     housing = _has_any(text, ("an husnaedis", "excluding housing", "without housing"))
     selections = {"Vísitala": "CPILH" if housing else "CPI", "Liður": measure}
-    return _with_periods(
-        "cpi", "Mánuður", selections, periods, spans, 12 if months_back is None else months_back
-    )
+    return _with_periods("cpi", "Mánuður", selections, periods, spans, months_back, COMPARE_MONTHS)
 
 
 def _interpret_population(
@@ -434,7 +445,8 @@ def _interpret_population(
         {"Eining": measure},
         years,
         spans,
-        10 if years_back is None else years_back,
+        years_back,
+        COMPARE_YEARS,
     )
 
 
@@ -455,17 +467,24 @@ def _with_periods(
     selections: dict[str, str],
     periods: list[str],
     spans: bool,
-    default_span: int,
-) -> Interpretation:
+    span: int | None,
+    unstated: Clarification,
+) -> Interpretation | Clarification:
     """Complete selections with one period, or a comparison between two.
 
-    A comparison without periods spans default_span steps up to the latest period;
-    one with a single period runs from it to the latest.
+    A comparison without periods spans the stated number of steps up to the latest period;
+    one with a single period runs from it to the latest. A comparison with neither is not
+    given a span: the question is asked again (unstated).
     """
     if len(periods) == 2:
         return Interpretation(table, {time_code: periods[1], **selections}, periods[0])
     if spans:
-        start = periods[0] if periods else before_latest(default_span)
+        if periods:
+            start = periods[0]
+        elif span is not None:
+            start = before_latest(span)
+        else:
+            return unstated
         return Interpretation(table, {time_code: LATEST, **selections}, start)
     return Interpretation(table, {time_code: periods[0] if periods else LATEST, **selections})
 

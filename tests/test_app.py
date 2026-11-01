@@ -167,7 +167,9 @@ def test_answers_change_over_time_end_to_end() -> None:
         patch("talnaspor.answer.get_metadata", return_value=metadata),
         patch("talnaspor.answer.get_data", return_value=data),
     ):
-        response = client.post("/ask", json={"question": "How has Iceland's population changed?"})
+        response = client.post(
+            "/ask", json={"question": "How has Iceland's population changed over the last decade?"}
+        )
 
     body = response.json()
     assert body["status"] == "answer"
