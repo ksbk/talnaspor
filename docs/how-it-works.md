@@ -8,6 +8,37 @@ Iceland table, with exactly one value chosen for every column, and only Statisti
 supplies the number. Everything else in the system exists to fill that form correctly, or
 to refuse when it cannot.
 
+```mermaid
+flowchart TD
+    UI["Browser UI"] --> ASK["FastAPI /ask"]
+    ASK --> CUR["Curated interpretation"]
+    ASK --> CAT["Catalog discovery and dimension planning"]
+    CUR --> VAL["Metadata-backed query validation"]
+    CAT --> VAL
+    VAL --> API["Statistics Iceland PX-Web API"]
+    API --> CHECK["JSON-stat2 response checks"]
+    CHECK --> FORMAT["Answer formatting and source references"]
+    FORMAT --> RESULT["Browser result"]
+    ASK -.-> ALT["Clarification, suggestions or refusal"]
+    CAT -.-> ALT
+    VAL -.-> ALT
+    CHECK -.-> ALT
+    ALT --> RESULT
+```
+
+Table **metadata** describes dimensions, allowed categories and labels; **observations**
+are the numerical cells retrieved after selection. Metadata is fetched before query
+validation and also guides catalog planning; the diagram shows the main answer path.
+[Curated interpretation](../src/talnaspor/interpret.py) uses configured CPI and population
+tables; [catalog discovery](../src/talnaspor/catalog.py) and
+[dimension planning](../src/talnaspor/planner.py) handle other questions.
+
+[Query validation](../src/talnaspor/query.py) checks allowed selections, and
+[response checks](../src/talnaspor/jsonstat.py) verify that returned cells match the query.
+Neither proves that the selected table and categories fully express the user's meaning.
+Both routes currently use deterministic rules, with no runtime LLM; model-assisted
+interpretation is only a [future possibility](roadmap.md).
+
 ## 1. The data: what a Statistics Iceland table is
 
 PX-Web holds about **2,102 tables** in a folder tree, organised into six databases
