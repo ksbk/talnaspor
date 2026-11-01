@@ -186,8 +186,8 @@ run it shortly before a demonstration.
   tested for rewording missed questions. It added one answer on the held-out questions,
   below the agreed bar, so it is not part of this build.
 - **Development:** Talnaspor was written with the help of AI coding assistants (Claude Code
-  and Codex), which assisted in writing, testing and reviewing the code. The team directed
-  and reviewed the work.
+  and Codex), which assisted in writing, testing and reviewing the code. The solo developer
+  directed and reviewed the work.
 
 Enforced in code:
 

@@ -1,38 +1,26 @@
 # Talnaspor
 
-Ask a question about Icelandic statistics, in Icelandic or English, and get the official
-figure from Statistics Iceland (Hagstofa Íslands), together with exactly where it came from.
+**Explore Icelandic statistics using everyday language.**
 
-Built for Track 2 (direct PX-Web API) of Statistics Iceland's Gagnaþon 2026.
+Talnaspor is an open-source web application developed by a solo developer for Gagnaþon
+2026. Ask questions in Icelandic or English and retrieve figures from Statistics Iceland
+(Hagstofa Íslands), with references to the original data.
 
-> **Hver er verðbólgan núna?**
-> Vísitala neysluverðs, ársbreyting í október 2026: 5,9%. Heimild: Hagstofa Íslands,
-> Vísitala neysluverðs og breytingar, grunnur 1988=100.
+## Why Talnaspor?
 
-## Why
+Statistics Iceland publishes thousands of tables. Finding a particular figure means
+locating the right table and selecting its period, categories and measure. Talnaspor
+helps with these steps and shows its selections so you can check the result at the source.
 
-Statistics Iceland publishes about 2,100 tables. Finding one number means knowing which
-table holds it and choosing a value for every one of its dimensions (period, sex, age,
-region, unit and so on). Talnaspor does that from a plain question. It shows the figure,
-its unit and period, the source table and every value it selected, so anyone can check the
-answer at the source.
+## Features
 
-When Talnaspor cannot settle a question, it does not guess. It asks for the missing
-detail, points to the tables that probably hold the answer, or says that the figure is not
-available.
-
-## What it can do
-
-- **Curated answers** for inflation and the consumer price index (`VIS01000`) and key
-  population figures (`MAN00000`): named or latest periods, two-period comparisons and
-  spans such as "síðustu tíu árin".
-- **Catalog answers** from any of the 2,102 tables, only when the question settles every
-  dimension of the table. These are marked as selected automatically and list each value.
-- **Suggestions, clarifications and refusals** when no table can be settled, a question is
-  incomplete, or a figure is outside the table or unpublished.
-- **Short follow-ups** such as *What about women?*, shown as understood.
-- **Icelandic and English**, switched with **ÍS / EN**, using Statistics Iceland's own
-  English labels.
+- Questions and answers in Icelandic and English
+- Search across a catalog of approximately 2,100 statistical tables
+- Inflation and population answers, with catalog answers where dimension selection is supported
+- Validated PX-Web retrieval, source links, periods and selected categories
+- Numerical units where available, and comparisons between two periods where supported
+- Clarifications, table suggestions and refusals when a direct answer cannot be verified
+- Supported short follow-ups, with the interpreted question shown
 
 ## Quick start
 
@@ -47,74 +35,41 @@ pip install -r requirements.txt    # Exact versions, exported from uv.lock
 uvicorn app:app
 ```
 
-Then open <http://127.0.0.1:8000>. With [uv](https://docs.astral.sh/uv/), `make sync`
-and `make run` do the same. Talnaspor runs locally; there is no hosted version.
-
-## Example questions
-
-| Question | Answer (as of 31 October 2026) | Table |
-|---|---|---|
-| *Hver var verðbólgan í september 2026?* | 5,9% | `VIS01000` |
-| *What is the population of Reykjavík in 2026?* | 139,804 | `MAN03270` (catalog) |
-| *Hvernig breyttist atvinnuleysi frá 2020 til 2025?* | -2,0 prósentustig (6,3 → 4,3) | `VIN00911` (catalog) |
-| *Hver var verðbólgan árið 2024?* | Asks which month | |
-
-Figures change when Statistics Iceland publishes new data; the answer card always shows the
-period. For a guided demonstration, see [docs/judges-guide.md](docs/judges-guide.md).
+Open <http://127.0.0.1:8000> in your browser. Talnaspor runs locally.
+With uv installed, `make sync` followed by `make run` starts the same application.
+See [example questions and recorded answers](docs/examples.md) to get started.
 
 ## How it works
 
-```text
-question ─▶ interpret ─▶ table metadata ─▶ validated query ─▶ PX-Web API
-                                                                    │
-answer card ◀─ ÍS/EN template ◀─ verified observation ◀─ JSON-stat2 decoder
-```
+Deterministic rules interpret a question and search the table catalog. Talnaspor selects
+categories, validates them against table metadata, and retrieves observations through
+Statistics Iceland's PX-Web API. It checks the returned structure and presents the
+figure, or a supported two-period calculation, with its source and selections.
 
-Explicit rules turn the question into one value for every dimension of one table. Each
-value must exist in the table's metadata, or no query is sent. The response is accepted
-only if it answers exactly that query, and the figure is shown with its unit, period,
-source link and the selections made.
-
-**No language model runs at runtime.** Interpretation and planning are deterministic code,
-and every figure is a value returned by Statistics Iceland. The remaining risk is choosing
-the wrong table or category, which is why every answer shows its selections.
+No language model runs at runtime. Structural validation cannot guarantee that a question
+was interpreted correctly; the selected table and categories remain available to inspect.
+See [How it works](docs/how-it-works.md) for the architecture, API and runtime safeguards.
 
 ## Evaluation and limitations
 
-Talnaspor gave **no wrong figures** in the latest recorded run of each evaluation set:
+Supported questions have been tested against recorded expectations from Statistics
+Iceland. The available evaluations informed development; they are not independent unseen
+tests. Detailed results and methodology are in the
+[evaluation documentation](docs/how-it-works.md#7-evaluation).
 
-- 65 curated development questions: the last checked-in run covers 62 of them and predates
-  the current code.
-- 30 understanding questions.
-- 60 external example questions from the Gagnaþon 2026 Track 3 starter repository: 16
-  correct and 44 safe non-answers, after fixes prompted by an earlier run on the same
-  questions (9 correct, 4 wrong).
-
-**Coverage is the main weakness.** Beyond inflation and population, many questions get a
-clarification or suggestions instead of a figure. Catalog units can be general, such as
-"Fjöldi/hlutfall". Talnaspor gives one figure or two periods, with no time series or
-ratios. Every set above was used during development, so none is an unseen test, and the
-results do not show that arbitrary questions are answered correctly. See the
-[evaluation summary](docs/how-it-works.md#7-evaluation) and the
-[full list of limitations](docs/how-it-works.md#8-known-limitations).
-
-## Future development
-
-The primary planned direction, not part of this submission, is a hybrid architecture: a
-local open-weight language model proposes how to read the question, and independent
-verification and Statistics Iceland's data decide what is answered, with today's rules as
-baseline and fallback. Details and other planned work are in [docs/roadmap.md](docs/roadmap.md).
+Broader natural-language coverage remains limited. Many questions receive a clarification
+or table suggestions rather than a figure. Catalog units may be general, and time series,
+ratios and compound questions are not supported. Live retrieval depends on API availability
+and request limits. See the [known limitations](docs/how-it-works.md#8-known-limitations).
 
 ## Documentation
 
-- [How it works](docs/how-it-works.md): architecture, evaluation, limitations, runtime
-  safeguards, API and development
-- [Judges' guide](docs/judges-guide.md): a five-minute guided demonstration
-- [Roadmap](docs/roadmap.md): planned work
+- [Technical documentation and development commands](docs/how-it-works.md)
+- [Examples with recorded figures and source selections](docs/examples.md)
+- [Potential future enhancements](docs/roadmap.md)
 
-## Technology and licence
+## Development and licence
 
-Python, FastAPI, Uvicorn, Requests, Pydantic and pandas, all open-source. The only external
-service contacted is Statistics Iceland's API. Talnaspor was written with the help of AI
-coding assistants (Claude Code and Codex); the team directed and reviewed the work.
-Licensed under [MIT](LICENSE).
+Talnaspor was developed by one individual using AI-assisted coding tools, including
+Claude Code and Codex. It runs on Python, FastAPI, Uvicorn, Requests, Pydantic and pandas.
+Released under the [MIT licence](LICENSE).

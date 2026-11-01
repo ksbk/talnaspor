@@ -1,17 +1,20 @@
 # Talnaspor roadmap
 
-**Everything in this document is planned work. None of it is implemented in the current
-build.** What Talnaspor does today is described in [how-it-works.md](how-it-works.md). What
-has been measured, and how, is in [its evaluation section](how-it-works.md#7-evaluation).
-Success criteria below are proposed acceptance tests for future work, not results.
+*Potential next steps after Gagnaþon 2026.*
 
-**Primary direction.** The main planned direction for future research and development is a
-hybrid architecture: a locally hosted, open-weight language model that understands the
-question and proposes a structured interpretation, with independent verification and
-Statistics Iceland's data deciding what is answered. It is described in
-[Target architecture](#target-architecture-local-language-model-with-independent-verification)
-and in the [research programme L1–L7](#primary-research-programme-local-language-model).
-It is not part of the current build or the Gagnaþon 2026 submission.
+These ideas arise from the hackathon prototype's limitations. They are possible future
+work, not an established research programme, an implemented architecture or commitments
+to deliver particular features. The proposals and acceptance criteria below are retained
+as options for investigation. Current capabilities are described in
+[how-it-works.md](how-it-works.md); measured results are in
+[its evaluation section](how-it-works.md#7-evaluation).
+
+Promising directions include local multilingual open-weight language models, semantic
+table retrieval and independent verification of question meaning and query selections.
+The [possible architecture](#possible-architecture-local-language-model-with-independent-verification)
+and [local-model investigations L1–L7](#possible-investigations-local-language-model)
+describe one approach that could be tested against today's deterministic baseline.
+No adoption decision is implied.
 
 ## Starting point
 
@@ -26,8 +29,10 @@ agreed in advance, and was not adopted.
 
 ## Principles that future work keeps
 
-1. **Numbers come only from Statistics Iceland.** No component, including a language model,
-   may supply a value. Every dimension code is checked against the table's metadata.
+1. **Observations come only from Statistics Iceland.** No component, including a language
+   model, may supply a value. Derived figures, such as today's two-period changes, are
+   calculated by displayed formulas from retrieved values. Every dimension code is checked
+   against the table's metadata.
 2. **A safe non-answer is better than a wrong answer.** A change that adds answers but also
    adds wrong ones is not accepted without an explicit, documented decision.
 3. **Coverage and correctness are reported separately**, together with safe non-answers,
@@ -41,9 +46,9 @@ agreed in advance, and was not adopted.
    method is measured against, and as a fallback path when no model is available or its
    proposal fails verification.
 
-## Target architecture: local language model with independent verification
+## Possible architecture: local language model with independent verification
 
-*Planned. Nothing in this section is implemented.*
+*Proposed future work. This architecture is not implemented.*
 
 ```text
 user question + dialogue context
@@ -94,12 +99,12 @@ restriction such as "kvenna", confuse a level with a change, or pick the wrong r
 period. That is why verification is a separate, deterministic stage, and why evaluation
 measures semantic correctness, not schema validity.
 
-## Primary research programme: local language model
+## Possible investigations: local language model
 
-The research milestones that would build and test the target architecture above. They run
-in order where stated, and each ends in a published measurement. The model is adopted for
-any stage only if it improves on the deterministic baseline under the reporting standard
-below, without raising unsupported-answer risk.
+These investigations could test the possible architecture above. Dependencies indicate
+a possible order, rather than a delivery schedule. Any adoption decision would need
+measurements against the deterministic baseline under the reporting standard below,
+without raising unsupported-answer risk.
 
 ### L1. A test suite for interpretation (D: evaluation)
 
@@ -275,7 +280,7 @@ Engineering work that needs no new research. Each item is independent of the oth
 - **Success criterion:** the container starts from a fresh clone with one command, passes
   `make check`, and a deliberately blocked outside address is refused at the network
   level as well as in code.
-- **Dependencies and risks:** hosting is a separate decision for the owners and, for any
+- **Dependencies and risks:** hosting is a separate decision for the developer and, for any
   public service, for Statistics Iceland's usage terms. A shared cache must not serve data
   older than its stated date.
 
@@ -291,7 +296,7 @@ Engineering work that needs no new research. Each item is independent of the oth
 
 ## Longer-term supporting research
 
-Research that the local-model programme depends on, and that is useful without it. Each
+Possible research supporting local-model experiments, also useful without them. Each
 item starts with a measurement, so that a method is adopted only if it beats the current
 baseline on the reporting standard below.
 

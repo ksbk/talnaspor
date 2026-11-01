@@ -46,8 +46,8 @@ tables rather than a figure, and a catalog unit can be general, such as "Fjöldi
 
 ## How it maps to the judging criteria
 
-*Provisional:* these criteria are the team's reading of the Gagnaþon brief, not an official
-rubric.
+*Provisional:* these criteria are the developer's reading of the Gagnaþon brief,
+not an official rubric.
 
 | Criterion | What to show |
 |---|---|
@@ -59,8 +59,9 @@ rubric.
 | User value | One figure from 2,102 tables, with its source |
 
 **The honest weak spot.** Talnaspor uses no language model at runtime. It interprets
-questions with deterministic rules and retrieves every figure directly from the PX-Web API.
-The rules only choose codes; they do not generate numbers. The cost is coverage: phrasing
+questions with deterministic rules and retrieves every observation directly from the PX-Web
+API; a comparison's change is calculated from two retrieved values, both shown. The rules
+only choose codes; they do not generate numbers. The cost is coverage: phrasing
 the rules do not recognise gets a clarification or suggestions. A language model could be a
 later step, proposing codes that pass through the same validation (steps 5 and 7 of [how-it-works.md](how-it-works.md#2-one-question-step-by-step)).
 
@@ -74,10 +75,10 @@ non-answer. All three sets were used during development, so none is an unseen te
 ## Beyond the hackathon
 
 The current build is deliberately narrow: two curated tables, cautious catalog answers and
-no runtime language model. [roadmap.md](roadmap.md) sets out planned work, none of it
-implemented yet. Its primary direction is a hybrid architecture in which a locally hosted
-open-weight language model proposes a structured reading of the question, and an
-independent verification stage checks it against the question and Statistics Iceland's
-metadata before any figure is retrieved. The current rules remain the baseline and the
-fallback. The roadmap also covers near-term engineering, such as a live-versus-recorded
-indicator and reproducible evaluation reports, and an independently controlled benchmark.
+no runtime language model. [roadmap.md](roadmap.md) describes possible future enhancements.
+One proposed architecture would use a locally hosted open-weight language model to propose
+a structured reading of the question, with an independent verification stage to check it
+against the question and Statistics Iceland's metadata before any figure is retrieved.
+The current rules would provide the baseline and fallback. The roadmap also covers
+near-term engineering, such as a live-versus-recorded indicator and reproducible evaluation
+reports, and an independently controlled benchmark.
